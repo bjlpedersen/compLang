@@ -150,6 +150,13 @@ You will also have to add a line to `/test/scala/amyc/test/InterpreterTests.scal
 
 The tests provided originally in `test/` are the ones used to grade your work on Moodle. Please note that the grade returned by the grader on Moodle is what you will get for the lab. Therefore you should submit regularly on Moodle to validate your progress. Also, if tests pass locally but not on the grader, the grader is the one that counts so submit your work regularly and check the feedback in case of discrepancies.
 
+To run the test suites, you can use sbt:
+
+```bash
+  $ sbt
+  > test
+```
+
 ### Deliverables
 
 You should submit the following files on Moodle:
