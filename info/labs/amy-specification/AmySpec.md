@@ -193,7 +193,7 @@ Definition ::= AbstractClassDef | CaseClassDef | FunDef
 AbstractClassDef ::= abstract class Id
 CaseClassDef ::= case class Id ( Params ) extends Id
 
-FunDef ::= def Id ( Params ) : Type := { Expr }
+FunDef ::= def Id ( Params ) : Type :=  Expr end Id
 Params ::= ϵ | ParamDef [ , ParamDef ]∗
 
 ParamDef ::= Id : Type
