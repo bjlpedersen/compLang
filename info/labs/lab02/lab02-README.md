@@ -10,7 +10,7 @@ As we are now starting to work on your own compiler, we will start with a fresh 
 
 For now, you should work in this new project that will become your full compiler. Following labs will be delivered as files to add to this project.
 
-The structure of your project `src` directory should be as follows:
+The structure of your project directory should be as follows:
 
 ```text
 lib 
@@ -27,7 +27,7 @@ examples
  ├── ...
  └── ...
 
-amyc
+src/amyc
  ├── Main.scala                         
  │
  ├── parsing                             
