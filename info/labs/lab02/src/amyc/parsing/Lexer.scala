@@ -77,6 +77,19 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
    * 
    * */
 
+    def delimiterRegex(): Regex[Char] =
+    ":=".r |   // must come BEFORE ":"
+    "=>".r |   // must come BEFORE "="
+    "(".r  |
+    ")".r  |
+    "{".r  |
+    "}".r  |
+    ",".r  |
+    ":".r  |
+    ";".r  |
+    ".".r  |
+    "=".r
+
   
   // Keywords,
   def keywordRegex(): Regex[Char] = "abstract".r |
@@ -97,58 +110,84 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
 
   // Primitive type names,
   def primitivTypeRegex(): Regex[Char] = 
-    ???
-    // TODO
-  val primitiveTypeRule = 
-    ???
+    "Int".r | "Boolean".r | "String".r | "Unit".r
+  val primitiveTypeRule =  Rule(regex = primitivTypeRegex(),tag = "primitiveType",isSeparator = false,transformation = PrimitiveTypeValueInjection.injection)
     // TODO
   
   // Boolean literals,
   // TODO
-  val booleanLiteralRule = ???
+  val booleanLiteralRule = Rule(regex = "true".r | "false".r, tag = "booleanLiteral", isSeparator = false, transformation = BooleanLiteralValueInjection.injection) 
 
 
   // Operators,
-  // TODO
-  val operatorRule = ???
+  def operatorRegex(): Regex[Char] =
+  "++".r | "+".r | "-".r | "*".r | "/".r | "%".r |
+  "==".r | "!=".r | "<=".r | "<".r | ">=".r | ">".r |
+  "&&".r | "||".r | "!".r |
+  "->".r | "::".r
+  val operatorRule = Rule(regex = operatorRegex(), tag = "operator", isSeparator = false, transformation = OperatorValueInjection.injection)
 
+  
   // Identifiers,
+  def identifierRegex(): Regex[Char] = azAZ ~ (azAZ | digits | "_".r).*
   // TODO
-  val identifierRule = ???
+  val identifierRule = Rule(regex = identifierRegex(), tag = "identifier", isSeparator = false, transformation = IdentifierValueInjection.injection)
   
   // Integer literal,
   // TODO
-  val integerLiteralRule = ???
+  val integerLiteralRule = Rule(regex = digits.+, tag = "integerLiteral", isSeparator = false, transformation = IntegerValueInjection.injection)
 
   // String literal,
+  def stringLiteralRegex(): Regex[Char] = "\"".r ~ (("\\\\" .r | "\\\"".r | azAZ | digits | anyOf(" \t\r") | anyOf(specialCharsString.filter(_ != '"'))).*) ~ "\"".r
   // TODO
-  val stringLiteralRule = ???
+  val stringLiteralRule = Rule(regex = stringLiteralRegex(), tag = "stringLiteral", isSeparator = false, transformation = StringLiteralValueInjection.injection)
   
-  // Delimiters,
+ // Delimiters,
   // TODO
-  val delimiterRule = ???
+  val delimiterRule = Rule(regex = delimiterRegex(), tag = "delimiter", isSeparator = false, transformation = DelimiterValueInjection.injection)
 
   // Whitespaces,
   // TODO
-  val whitespaceRule = ???
+  val whitespaceRule = Rule(regex = whiteSpaces.+, tag = "whitespace", isSeparator = true, transformation = WhitespaceValueInjection.injection)
 
   // Single-line comments,
   // TODO
-  val singleCommentRule = ???
+  val singleCommentRule = Rule(regex = "//".r ~ anyOf(allString.filter(_ != '\n')).* ~ opt("\n".r), tag = "singleComment", isSeparator = true, transformation = CommentValueInjection.injection)
  
   // Multi-line comments,
-  // NOTE: Amy does not support nested multi-line comments (e.g. `/* foo /* bar */ */`).
+  // NOTE: Amy does not support nested multi-line comments (e.g. ⁠ /* foo /* bar */ */ ⁠).
   //       Make sure that unclosed multi-line comments result in an ErrorToken.
-  val multiCommentRule = ???
-  // TODO
+val multiCommentRule = Rule(
+    regex = "/*".r ~ (anyOf(allString.filter(_ != '*')) | ('*'.r.+ ~ anyOf(allString.filter(c => c != '*' && c != '/')))).* ~ '*'.r.+ ~ "/".r,
+    tag = "multiComment",
+    isSeparator = true,
+    transformation = CommentValueInjection.injection
+)
+  // Fallback rule: matches unclosed /* comment starts, producing an error
+  val unclosedCommentRule = Rule(
+    regex = "/*".r,
+    tag = "unclosedComment",
+    isSeparator = false,
+    transformation = CommentValueInjection.injection
+)
+
 
 
   val rules = stainless.collection.List(
-      keywordRule,
-      primitiveTypeRule,
-      ???
-      // TODO: Add all your rules here
+    keywordRule,
+    primitiveTypeRule,
+    booleanLiteralRule,
+    operatorRule,
+    identifierRule,
+    integerLiteralRule,
+    stringLiteralRule,
+    delimiterRule,
+    whitespaceRule,
+    singleCommentRule,
+    multiCommentRule,
+    unclosedCommentRule
   )
+
   /**
     * Converts a Ziplex token to an Amy token, filtering out whitespace and comments.
     * When the Ziplex token cannot be converted, returns an ErrorToken with the appropriate message.
@@ -179,7 +218,14 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
         case _ if token.rule == integerLiteralRule =>
             // Make sure to ensure that the integer literal fits in a 32-bit signed integer.
             // TODO
-            ???
+            token.value match
+                case IntegerValue(text) =>
+                    val str = text.mkString("")
+                    val value = BigInt(str)
+                    if (value < Int.MinValue || value > Int.MaxValue) then
+                        Some(Tokens.ErrorToken(s"Integer literal out of bounds: ${value}").setPos(pos))
+                    else
+                        Some(Tokens.IntLitToken(value.toInt).setPos(pos))
         case _ if token.rule == stringLiteralRule =>
             token.value match
                 case StringLiteralValue(value) => 
@@ -189,12 +235,21 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
         case _ if token.rule == delimiterRule =>
             token.value match
                 case DelimiterValue(value) => Some(Tokens.DelimiterToken(value.mkString("")).setPos(pos))
-        // TODO
+        case _ if token.rule == whitespaceRule =>
+            None
+        case _ if token.rule == singleCommentRule =>
+            None
+        case _ if token.rule == multiCommentRule =>
+            None
+        case _ if token.rule == unclosedCommentRule =>
+            Some(Tokens.ErrorToken("Unclosed comment").setPos(pos))
+        //TODO
         // Ignore whitespace and comments
         case _ =>
             None
     end match
   end toAmyToken
+
 
   override def run(ctx: amyc.utils.Context)(files: List[File]): Iterator[Token] = {
     import amyc.utils.ZipLexUtils.foreach
