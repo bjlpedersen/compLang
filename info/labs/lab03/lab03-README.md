@@ -151,7 +151,7 @@ As usual, you can find the skeleton in the git repository. This lab
 builds on your previous work, so -- given your implementation of the
 lexer -- you will only unpack two files from the skeleton.
 
-The structure of your project `src` directory should be as follows:
+The structure of your project directory should be as follows:
 
     lib 
      └── scallion-assembly-0.6.1.jar    
@@ -186,20 +186,20 @@ The structure of your project `src` directory should be as follows:
      │        ├── Reporter.scala
      │        └── UniqueCounter.scala
      │
-     └──test
-         ├── scala
-         │    └── amyc
-         │         └── test
-         │              ├── CompilerTest.scala
-         │              ├── LexerTests.scala
-         │              ├── ParserTests.scala      (new)
-         │              ├── TestSuite.scala
-         │              └── TestUtils.scala
-         └── resources
-                 ├── lexer
-                 │    └── ...
-                 └── parser                        (new)
-                     └── ...
+    test
+     ├── scala
+     │    └── amyc
+     │         └── test
+     │              ├── CompilerTest.scala
+     │              ├── LexerTests.scala
+     │              ├── ParserTests.scala      (new)
+     │              ├── TestSuite.scala
+     │              └── TestUtils.scala
+     └── resources
+            ├── lexer
+            │    └── ...
+            └── parser                        (new)
+                └── ...
 
 ## Deliverables
 
