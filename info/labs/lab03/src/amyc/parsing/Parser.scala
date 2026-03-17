@@ -169,7 +169,6 @@ object Parser extends Pipeline[Iterator[Token], Program]
     }
 
 
-  // starting here, this is mine
   // A literal expression.
   lazy val literal: Syntax[Literal[?]] = accept(LiteralKind){
     case IntLitToken(value) => IntLiteral(value)
@@ -193,7 +192,6 @@ object Parser extends Pipeline[Iterator[Token], Program]
   lazy val wildPattern: Syntax[Pattern] = accept(KeywordKind("_")){
     case KeywordToken("_") => WildcardPattern()
   }
-  // ending here, this was mine
 
 
 
