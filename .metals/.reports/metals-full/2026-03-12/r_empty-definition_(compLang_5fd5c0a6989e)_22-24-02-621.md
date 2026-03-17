@@ -1,3 +1,27 @@
+file://<WORKSPACE>/info/labs/lab02/src/amyc/parsing/Lexer.scala
+empty definition using pc, found symbol in pc: 
+semanticdb not found
+empty definition using fallback
+non-local guesses:
+	 -amyc/utils/identifierRegex.
+	 -amyc/utils/identifierRegex#
+	 -amyc/utils/identifierRegex().
+	 -amyc/utils/RegexUtils.identifierRegex.
+	 -amyc/utils/RegexUtils.identifierRegex#
+	 -amyc/utils/RegexUtils.identifierRegex().
+	 -ZiplexTokens.identifierRegex.
+	 -ZiplexTokens.identifierRegex#
+	 -ZiplexTokens.identifierRegex().
+	 -identifierRegex.
+	 -identifierRegex#
+	 -identifierRegex().
+	 -scala/Predef.identifierRegex.
+	 -scala/Predef.identifierRegex#
+	 -scala/Predef.identifierRegex().
+offset: 6148
+uri: file://<WORKSPACE>/info/labs/lab02/src/amyc/parsing/Lexer.scala
+text:
+```scala
 package amyc.parsing
 
 import amyc.utils._
@@ -131,7 +155,7 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
   // Identifiers,
   def identifierRegex(): Regex[Char] = azAZ ~ (azAZ | digits | "_".r).*
   // TODO
-  val identifierRule = Rule(regex = identifierRegex(), tag = "identifier", isSeparator = false, transformation = IdentifierValueInjection.injection)
+  val identifierRule = Rule(regex = identifi@@erRegex(), tag = "identifier", isSeparator = false, transformation = IdentifierValueInjection.injection)
   
   // Integer literal,
   // TODO
@@ -416,3 +440,9 @@ object ZiplexTokens {
       val injection: TokenValueInjection[Char] = TokenValueInjection(toValue, toCharacters)
   end CommentValueInjection
 }
+```
+
+
+#### Short summary: 
+
+empty definition using pc, found symbol in pc: 

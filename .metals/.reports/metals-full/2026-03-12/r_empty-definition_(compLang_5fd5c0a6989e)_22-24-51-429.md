@@ -1,3 +1,27 @@
+file://<WORKSPACE>/info/labs/lab02/src/amyc/parsing/Lexer.scala
+empty definition using pc, found symbol in pc: 
+semanticdb not found
+empty definition using fallback
+non-local guesses:
+	 -amyc/utils/stringLiteralRegex.
+	 -amyc/utils/stringLiteralRegex#
+	 -amyc/utils/stringLiteralRegex().
+	 -amyc/utils/RegexUtils.stringLiteralRegex.
+	 -amyc/utils/RegexUtils.stringLiteralRegex#
+	 -amyc/utils/RegexUtils.stringLiteralRegex().
+	 -ZiplexTokens.stringLiteralRegex.
+	 -ZiplexTokens.stringLiteralRegex#
+	 -ZiplexTokens.stringLiteralRegex().
+	 -stringLiteralRegex.
+	 -stringLiteralRegex#
+	 -stringLiteralRegex().
+	 -scala/Predef.stringLiteralRegex.
+	 -scala/Predef.stringLiteralRegex#
+	 -scala/Predef.stringLiteralRegex().
+offset: 6678
+uri: file://<WORKSPACE>/info/labs/lab02/src/amyc/parsing/Lexer.scala
+text:
+```scala
 package amyc.parsing
 
 import amyc.utils._
@@ -140,7 +164,7 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
   // String literal,
   def stringLiteralRegex(): Regex[Char] = "\"".r ~ (("\\\\" .r | "\\\"".r | azAZ | digits | anyOf(" \t\r") | anyOf(specialCharsString.filter(_ != '"'))).*) ~ "\"".r
   // TODO
-  val stringLiteralRule = Rule(regex = stringLiteralRegex(), tag = "stringLiteral", isSeparator = false, transformation = StringLiteralValueInjection.injection)
+  val stringLiteralRule = Rule(regex = stringLit@@eralRegex(), tag = "stringLiteral", isSeparator = false, transformation = StringLiteralValueInjection.injection)
   
  // Delimiters,
   // TODO
@@ -416,3 +440,9 @@ object ZiplexTokens {
       val injection: TokenValueInjection[Char] = TokenValueInjection(toValue, toCharacters)
   end CommentValueInjection
 }
+```
+
+
+#### Short summary: 
+
+empty definition using pc, found symbol in pc: 
