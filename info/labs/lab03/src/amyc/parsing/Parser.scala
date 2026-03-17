@@ -117,9 +117,18 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
   // HINT: It is useful to have a restricted set of expressions that don't include any more operators on the outer level.
   lazy val simpleExpr: Syntax[Expr] = 
-    literal.up[Expr] | variableOrCall | ???
+    literal.up[Expr] | variableOrCall |  ("(" ~>~ expr ~<~ ")")
 
-  lazy val variableOrCall: Syntax[Expr] = ???
+  lazy val arguments: Syntax[List[Expr]] =
+      ("(" ~>~ repsep(expr, ",").map(_.toList) ~<~ ")")
+    
+  lazy val variableOrCall: Syntax[Expr] =
+    (identifierPos ~ opt("." ~>~ identifier) ~ opt(arguments)).map {
+      case (name, pos) ~ None ~ None => Variable(name).setPos(pos)
+      case (name, pos) ~ None ~ Some(args) => Call(QualifiedName(None, name), args).setPos(pos)
+      case (module, pos) ~ Some(name) ~ Some(args) => Call(QualifiedName(Some(module), name), args).setPos(pos)
+      case _ => throw new AmycFatalError("Invalid variable or call")
+    }
 
 
   // TODO: Other definitions.
