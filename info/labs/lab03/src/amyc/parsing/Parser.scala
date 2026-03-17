@@ -55,7 +55,7 @@ object Parser extends Pipeline[Iterator[Token], Program]
       case abs ~ _ ~ id => AbstractClassDef(id).setPos(abs)
     } |
     (kw("case") ~ kw("class") ~ identifier ~ "(" ~ parameters ~ ")" ~ kw("extends") ~ identifier).map {
-      case c ~ _ ~ id ~ _ ~ params ~ _ ~ _ ~ parent => CaseClassDef(id, params, parent).setPos(c)
+      case c ~ _ ~ id ~ _ ~ params ~ _ ~ _ ~ parent => CaseClassDef(id, params.map(_.tt), parent).setPos(c)
     } |
     (kw("def") ~ identifier ~ "(" ~ parameters ~ ")" ~ ":" ~ typeTree ~ ":=" ~ expr ~ kw("end") ~ identifier).map {
       case d ~ id ~ _ ~ params ~ _ ~ _ ~ tpe ~ _ ~ body ~ _ ~ id1 => 
@@ -111,12 +111,12 @@ object Parser extends Pipeline[Iterator[Token], Program]
   // HINT: You can use `operators` to take care of associativity and precedence
   lazy val expr: Syntax[Expr] = recursive { 
 
-    val unaryExpr: Syntax[Expr] = 
+    lazy val unaryExpr: Syntax[Expr] = 
       (op("-") ~ unaryExpr).map { case start ~ e => Neg(e).setPos(start) } |
       (op("!") ~ unaryExpr).map { case start ~ e => Not(e).setPos(start) } |
       simpleExpr
 
-    val binOpExpr: Syntax[Expr] = operators(unaryExpr)(
+    lazy val binOpExpr: Syntax[Expr] = operators(unaryExpr)(
       op("*") | op("/") | op("%") is LeftAssociative,
       op("+") | op("-") | op("++") is LeftAssociative,
       op("<") | op("<=") is LeftAssociative,
