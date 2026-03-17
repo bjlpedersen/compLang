@@ -169,16 +169,23 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
 
   // A literal expression.
-  lazy val literal: Syntax[Literal[?]] = accept(LiteralKind){
+  lazy val literal: Syntax[Literal[?]] = standardLitteral | unitLitteral
+
+  lazy val standardLitteral: Syntax[Literal[?]] = accept(LiteralKind){
     case IntLitToken(value) => IntLiteral(value)
     case StringLitToken(value) => StringLiteral(value)
     case BoolLitToken(value) => BooleanLiteral(value)
-    // WARNING I might need to get a unit litteral from somewhere
   }
+
+  lazy val unitLitteral: Syntax[Literal[?]] = ("(" ~ ")").map{
+    case _ ~ _ => UnitLiteral()
+  }
+
+  // lazy val newLiteral: Syntax[Literal[?]] = opt("(" ~ ")")
 
   // A pattern as part of a mach case.
   lazy val pattern: Syntax[Pattern] = recursive { 
-    literalPattern | wildPattern
+    literalPattern | wildPattern | caseClassPatternAndID
   }
 
 
@@ -188,9 +195,23 @@ object Parser extends Pipeline[Iterator[Token], Program]
     case BoolLitToken(value) => LiteralPattern(BooleanLiteral(value))
   }
 
+  lazy val unitPattern: Syntax[Pattern] = ("(" ~ ")").map{
+    case t1 ~ t2 => LiteralPattern(UnitLiteral())
+  }
+
   lazy val wildPattern: Syntax[Pattern] = accept(KeywordKind("_")){
     case KeywordToken("_") => WildcardPattern()
   }
+
+
+  lazy val caseClassPatternAndID: Syntax[Pattern] = 
+    (identifierPos ~ opt("." ~>~ identifier) ~ opt("(" ~>~ repsep(pattern, ",") ~<~ ")"))
+    .map{
+      case (name, _) ~ None ~ None => IdPattern(name)
+      case (name, _) ~ None ~ Some(patterns) => CaseClassPattern(QualifiedName(None, name), patterns.toList)
+      case (module, _) ~ Some(name) ~ Some(patterns) => CaseClassPattern(QualifiedName(Some(module), name), patterns.toList)
+      case _ => throw new AmycFatalError("pattern")
+    }
 
 
 
