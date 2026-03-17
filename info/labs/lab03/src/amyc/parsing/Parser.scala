@@ -97,21 +97,31 @@ object Parser extends Pipeline[Iterator[Token], Program]
   }
 
 
+  // starting here, this is mine
   // A literal expression.
-  lazy val literal: Syntax[Literal[?]] = 
-    ???
+  lazy val literal: Syntax[Literal[?]] = accept(LiteralKind){
+    case IntLitToken(value) => IntLiteral(value)
+    case StringLitToken(value) => StringLiteral(value)
+    case BoolLitToken(value) => BooleanLiteral(value)
+    // WARNING I might need to get a unit litteral from somewhere
+  }
 
   // A pattern as part of a mach case.
   lazy val pattern: Syntax[Pattern] = recursive { 
-    ???
+    literalPattern | wildPattern
   }
 
 
-  lazy val literalPattern: Syntax[Pattern] = 
-    ???
+  lazy val literalPattern: Syntax[Pattern] = accept(LiteralKind){
+    case IntLitToken(value) => LiteralPattern((IntLiteral(value)))
+    case StringLitToken(value) => LiteralPattern(StringLiteral(value))
+    case BoolLitToken(value) => LiteralPattern(BooleanLiteral(value))
+  }
 
-  lazy val wildPattern: Syntax[Pattern] = 
-    ???
+  lazy val wildPattern: Syntax[Pattern] = accept(KeywordKind("_")){
+    case KeywordToken("_") => WildcardPattern()
+  }
+  // ending here, this was mine
 
 
 
