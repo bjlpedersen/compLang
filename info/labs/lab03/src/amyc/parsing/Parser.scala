@@ -169,7 +169,7 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
 
   // A literal expression.
-  lazy val literal: Syntax[Literal[?]] = standardLitteral | unitLitteral
+  lazy val literal: Syntax[Literal[?]] = standardLitteral | /*remove this unitLiteral to bring grammar back to ll1*/ unitLiteral
 
   lazy val standardLitteral: Syntax[Literal[?]] = accept(LiteralKind){
     case IntLitToken(value) => IntLiteral(value)
@@ -177,7 +177,7 @@ object Parser extends Pipeline[Iterator[Token], Program]
     case BoolLitToken(value) => BooleanLiteral(value)
   }
 
-  lazy val unitLitteral: Syntax[Literal[?]] = ("(" ~ ")").map{
+  lazy val unitLiteral: Syntax[Literal[?]] = ("(" ~ ")").map{
     case _ ~ _ => UnitLiteral()
   }
 
