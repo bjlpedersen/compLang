@@ -1,3 +1,27 @@
+file://<WORKSPACE>/info/labs/lab02/src/amyc/parsing/Lexer.scala
+empty definition using pc, found symbol in pc: 
+semanticdb not found
+empty definition using fallback
+non-local guesses:
+	 -amyc/utils/delimiterRegex.
+	 -amyc/utils/delimiterRegex#
+	 -amyc/utils/delimiterRegex().
+	 -amyc/utils/RegexUtils.delimiterRegex.
+	 -amyc/utils/RegexUtils.delimiterRegex#
+	 -amyc/utils/RegexUtils.delimiterRegex().
+	 -ZiplexTokens.delimiterRegex.
+	 -ZiplexTokens.delimiterRegex#
+	 -ZiplexTokens.delimiterRegex().
+	 -delimiterRegex.
+	 -delimiterRegex#
+	 -delimiterRegex().
+	 -scala/Predef.delimiterRegex.
+	 -scala/Predef.delimiterRegex#
+	 -scala/Predef.delimiterRegex().
+offset: 6860
+uri: file://<WORKSPACE>/info/labs/lab02/src/amyc/parsing/Lexer.scala
+text:
+```scala
 package amyc.parsing
 
 import amyc.utils._
@@ -144,7 +168,7 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
   
  // Delimiters,
   // TODO
-  val delimiterRule = Rule(regex = delimiterRegex(), tag = "delimiter", isSeparator = false, transformation = DelimiterValueInjection.injection)
+  val delimiterRule = Rule(regex = delim@@iterRegex(), tag = "delimiter", isSeparator = false, transformation = DelimiterValueInjection.injection)
 
   // Whitespaces,
   // TODO
@@ -416,3 +440,9 @@ object ZiplexTokens {
       val injection: TokenValueInjection[Char] = TokenValueInjection(toValue, toCharacters)
   end CommentValueInjection
 }
+```
+
+
+#### Short summary: 
+
+empty definition using pc, found symbol in pc: 

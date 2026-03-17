@@ -51,7 +51,19 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
   // A definition within a module.
   lazy val definition: Syntax[ClassOrFunDef] = 
-   ???
+    (kw("abstract") ~ kw("class") ~ identifier).map {
+      case abs ~ _ ~ id => AbstractClassDef(id).setPos(abs)
+    } |
+    (kw("case") ~ kw("class") ~ identifier ~ "(" ~ parameters ~ ")" ~ kw("extends") ~ identifier).map {
+      case c ~ _ ~ id ~ _ ~ params ~ _ ~ _ ~ parent => CaseClassDef(id, params, parent).setPos(c)
+    } |
+    (kw("def") ~ identifier ~ "(" ~ parameters ~ ")" ~ ":" ~ typeTree ~ ":=" ~ expr ~ kw("end") ~ identifier).map {
+      case d ~ id ~ _ ~ params ~ _ ~ _ ~ tpe ~ _ ~ body ~ _ ~ id1 => 
+        if id == id1 then 
+          FunDef(id, params, tpe, body).setPos(d)
+        else 
+          throw new AmycFatalError("Begin and end function names do not match: " + id + " and " + id1)
+    }
   
 
   // A list of parameter definitions.
@@ -59,7 +71,9 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
   // A parameter definition, i.e., an identifier along with the expected type.
   lazy val parameter: Syntax[ParamDef] = 
-   ???
+    (identifierPos ~ ":" ~ typeTree).map {
+      case (name, pos) ~ _ ~ tpe => ParamDef(name, tpe).setPos(pos)
+    }
 
   // A type expression.
   lazy val typeTree: Syntax[TypeTree] = primitiveType | identifierType
@@ -88,13 +102,71 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
   // A user-defined type (such as `List`).
   lazy val identifierType: Syntax[TypeTree] = 
-    ???
+    (identifierPos ~ opt("." ~>~ identifier)).map {
+      case (name, pos) ~ None => TypeTree(ClassType(QualifiedName(None, name))).setPos(pos)
+      case (module, pos) ~ Some(name) => TypeTree(ClassType(QualifiedName(Some(module), name))).setPos(pos)
+    }
 
   // An expression.
   // HINT: You can use `operators` to take care of associativity and precedence
   lazy val expr: Syntax[Expr] = recursive { 
-    ???
+
+    val unaryExpr: Syntax[Expr] = 
+      (op("-") ~ unaryExpr).map { case start ~ e => Neg(e).setPos(start) } |
+      (op("!") ~ unaryExpr).map { case start ~ e => Not(e).setPos(start) } |
+      simpleExpr
+
+    val binOpExpr: Syntax[Expr] = operators(unaryExpr)(
+      op("*") | op("/") | op("%") is LeftAssociative,
+      op("+") | op("-") | op("++") is LeftAssociative,
+      op("<") | op("<=") is LeftAssociative,
+      op("==") is LeftAssociative,
+      op("&&") is LeftAssociative,
+      op("||") is LeftAssociative
+    ) {
+      case (lhs, OperatorToken(opString), rhs) => opString match {
+        case "*" => Times(lhs, rhs).setPos(lhs)
+        case "/" => Div(lhs, rhs).setPos(lhs)
+        case "%" => Mod(lhs, rhs).setPos(lhs)
+        case "+" => Plus(lhs, rhs).setPos(lhs)
+        case "-" => Minus(lhs, rhs).setPos(lhs)
+        case "++" => Concat(lhs, rhs).setPos(lhs)
+        case "<" => LessThan(lhs, rhs).setPos(lhs)
+        case "<=" => LessEquals(lhs, rhs).setPos(lhs)
+        case "==" => Equals(lhs, rhs).setPos(lhs)
+        case "&&" => And(lhs, rhs).setPos(lhs)
+        case "||" => Or(lhs, rhs).setPos(lhs)
+      }
+    }
+
+    val matchExpr: Syntax[Expr] = 
+      (binOpExpr ~ opt(kw("match") ~ "{" ~ many1(matchCase) ~ "}")).map {
+        case e ~ None => e
+        case e ~ Some(_ ~ _ ~ cases ~ _) => Match(e, cases.toList).setPos(e)
+      }
+
+    val matchIfErrorExpr: Syntax[Expr] = 
+      (kw("if") ~ "(" ~ expr ~ ")" ~ kw("then") ~ expr ~ kw("else") ~ expr ~ kw("end") ~ kw("if")).map {
+        case i ~ _ ~ cond ~ _ ~ _ ~ thenn ~ _ ~ elze ~ _ ~ _ => Ite(cond, thenn, elze).setPos(i)
+      } |
+      (kw("error") ~ "(" ~ expr ~ ")").map {
+        case err ~ _ ~ msg ~ _ => Error(msg).setPos(err)
+      } |
+      matchExpr
+
+    (kw("val") ~ parameter ~ "=" ~ matchIfErrorExpr ~ ";" ~ expr).map { 
+      case v ~ param ~ _ ~ value ~ _ ~ body => Let(param, value, body).setPos(v)
+    } |
+    (matchIfErrorExpr ~ opt(";" ~ expr)).map {
+      case e ~ None => e
+      case e ~ Some(_ ~ seq) => Sequence(e, seq).setPos(e)
+    }
   }
+
+  lazy val matchCase: Syntax[MatchCase] = 
+    (kw("case") ~ pattern ~ "=>" ~ expr).map {
+      case c ~ pat ~ _ ~ e => MatchCase(pat, e).setPos(c)
+    }
 
 
   // A literal expression.

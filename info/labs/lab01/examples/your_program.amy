@@ -1,0 +1,38 @@
+object Fib
+    // a and b are the two previous fibonacci numbers
+    def fibHelper(n: Int(32), a: Int(32), b: Int(32)): Int(32) :=
+        if (n == 0) then a
+        else fibHelper(n - 1, b, a + b)
+        end if
+    end fibHelper
+
+    def fib(n: Int(32)): Int(32) :=
+        fibHelper(n, 1, 1)
+    end fib
+
+    Std.printInt(fib(1));
+    Std.printInt(fib(5));
+    Std.printInt(fib(10))
+end Fib
+
+object Primes
+    def isPrime(num: Int(32), divisor: Int(32)): Boolean :=
+        if (num / 2 < divisor) then true
+        else
+            if (num % divisor == 0) then false
+            else isPrime(num, divisor + 1)
+            end if
+        end if
+    end isPrime
+
+    def primesBelowN(n: Int(32), counter: Int(32), primes: L.List): L.List :=
+        if (n <= counter) then primes
+        else
+            if (isPrime(counter, 2)) then
+                primesBelowN(n, counter + 1, L.append(primes, counter))
+            else
+                primesBelowN(n, counter + 1, primes)
+            end if
+        end if
+    end primesBelowN
+end Primes

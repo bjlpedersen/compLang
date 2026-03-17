@@ -1,3 +1,17 @@
+file://<WORKSPACE>/info/labs/lab01/src/amyc/interpreter/Interpreter.scala
+empty definition using pc, found symbol in pc: 
+semanticdb not found
+empty definition using fallback
+non-local guesses:
+	 -utils/Identifier#
+	 -ast/SymbolicTreeModule.Identifier#
+	 -ast/Identifier#
+	 -Identifier#
+	 -scala/Predef.Identifier#
+offset: 6697
+uri: file://<WORKSPACE>/info/labs/lab01/src/amyc/interpreter/Interpreter.scala
+text:
+```scala
 package amyc
 package interpreter
 
@@ -150,7 +164,7 @@ object Interpreter extends Pipeline[(Program, SymbolTable), Unit] {
             // where id has been bound to value within the pattern.
             // Returns None when the pattern fails to match.
             // Note: Only works on well typed patterns (which have been ensured by the type checker).
-          def matchesPattern(v: Value, pat: Pattern): Option[List[(Identifier, Value)]] = {
+          def matchesPattern(v: Value, pat: Pattern): Option[List[(Id@@entifier, Value)]] = {
             ((v, pat): @unchecked) match {
               case (_, WildcardPattern()) => 
                   Some(List())
@@ -207,3 +221,10 @@ object Interpreter extends Pipeline[(Program, SymbolTable), Unit] {
     }
   }
 }
+
+```
+
+
+#### Short summary: 
+
+empty definition using pc, found symbol in pc: 

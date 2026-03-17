@@ -1,3 +1,16 @@
+error id: B15F37312AD4E3B0B7F29AEDBA022757
+file://<WORKSPACE>/info/labs/lab02/src/amyc/parsing/Lexer.scala
+### java.lang.IndexOutOfBoundsException: 0
+
+occurred in the presentation compiler.
+
+
+
+action parameters:
+offset: 8411
+uri: file://<WORKSPACE>/info/labs/lab02/src/amyc/parsing/Lexer.scala
+text:
+```scala
 package amyc.parsing
 
 import amyc.utils._
@@ -77,9 +90,8 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
    * 
    * */
 
-    def delimiterRegex(): Regex[Char] =
-    ":=".r |   // must come BEFORE ":"
-    "=>".r |   // must come BEFORE "="
+  def delimiterRegex(): Regex[Char] =
+    "=>".r |   // must come BEFORE "=" (longer match first)
     "(".r  |
     ")".r  |
     "{".r  |
@@ -89,7 +101,6 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
     ";".r  |
     ".".r  |
     "=".r
-
   
   // Keywords,
   def keywordRegex(): Regex[Char] = "abstract".r |
@@ -108,71 +119,52 @@ object AmyLexer extends Pipeline[List[File], Iterator[Token]] {
                                     "end".r
   val keywordRule = Rule(regex = keywordRegex(), tag = "keyword", isSeparator = false, transformation = KeywordValueInjection.injection)
 
-  // Primitive type names, TODO
+  // Primitive type names,
   def primitivTypeRegex(): Regex[Char] = 
-    "Int".r | "Boolean".r | "String".r | "Unit".r
-  val primitiveTypeRule =  Rule(regex = primitivTypeRegex(),tag = "primitiveType",isSeparator = false,transformation = PrimitiveTypeValueInjection.injection)
+    ???
+    // TODO
+  val primitiveTypeRule = 
+    ???
     // TODO
   
   // Boolean literals,
   // TODO
-  val booleanLiteralRule = Rule(regex = "true".r | "false".r, tag = "booleanLiteral", isSeparator = false, transformation = BooleanLiteralValueInjection.injection) 
+  val booleanLiteralRule = ???
 
 
-  // Operators, TODO
-  def operatorRegex(): Regex[Char] =
-  "++".r | "+".r | "-".r | "*".r | "/".r | "%".r |
-  "==".r | "!=".r | "<=".r | "<".r | ">=".r | ">".r |
-  "&&".r | "||".r | "!".r |
-  "->".r | "::".r
-  val operatorRule = Rule(regex = operatorRegex(), tag = "operator", isSeparator = false, transformation = OperatorValueInjection.injection)
-
-  
-  // Identifiers,
-  def identifierRegex(): Regex[Char] = azAZ ~ (azAZ | digits | "_".r).*
+  // Operators,
   // TODO
-  val identifierRule = Rule(regex = identifierRegex(), tag = "identifier", isSeparator = false, transformation = IdentifierValueInjection.injection)
+  val operatorRule = ???
+
+  // Identifiers,
+  // TODO
+  val identifierRule = ???
   
   // Integer literal,
   // TODO
-  val integerLiteralRule = Rule(regex = digits.+, tag = "integerLiteral", isSeparator = false, transformation = IntegerValueInjection.injection)
+  val integerLiteralRule = ???
 
   // String literal,
-  def stringLiteralRegex(): Regex[Char] = "\"".r ~ (("\\\\" .r | "\\\"".r | azAZ | digits | anyOf(" \t\r") | anyOf(specialCharsString.filter(_ != '"'))).*) ~ "\"".r
   // TODO
-  val stringLiteralRule = Rule(regex = stringLiteralRegex(), tag = "stringLiteral", isSeparator = false, transformation = StringLiteralValueInjection.injection)
+  val stringLiteralRule = ???
   
- // Delimiters,
+  // Delimiters,
   // TODO
   val delimiterRule = Rule(regex = delimiterRegex(), tag = "delimiter", isSeparator = false, transformation = DelimiterValueInjection.injection)
 
   // Whitespaces,
   // TODO
-  val whitespaceRule = Rule(regex = whiteSpaces.+, tag = "whitespace", isSeparator = true, transformation = WhitespaceValueInjection.injection)
+  val whitespaceRule = Rule(regex = " ".r, tag = "whitespace", isSeparator = true, transformation = WhitespaceValueInjection.injection)
 
   // Single-line comments,
   // TODO
-  val singleCommentRule = Rule(regex = "//".r ~ anyOf(allString.filter(_ != '\n')).* ~ opt("\n".r), tag = "singleComment", isSeparator = true, transformation = CommentValueInjection.injection)
+  val singleCommentRule = Rule(regex = "//".r ~ all.* ~ "\n".r, tag = "singleComment", isSeparator = true, transformation = CommentValueInjection.injection)
  
   // Multi-line comments,
-  // NOTE: Amy does not support nested multi-line comments (e.g. ⁠ /* foo /* bar */ */ ⁠).
+  // NOTE: Amy does not support nested multi-line comments (e.g. `/* foo /* bar */ */`).
   //       Make sure that unclosed multi-line comments result in an ErrorToken.
-val multiCommentRule = Rule(
-    regex = "/*".r ~ (anyOf(allString.filter(_ != '*')) | ('*'.r.+ ~ anyOf(allString.filter(c => c != '*' && c != '/')))).* ~ '*'.r.+ ~ "/".r,
-    tag = "multiComment",
-    isSeparator = true,
-    transformation = CommentValueInjection.injection
-)
-// TODO
-
-  // Fallback rule: matches unclosed /* comment starts, producing an error
-  val unclosedCommentRule = Rule(
-    regex = "/*".r,
-    tag = "unclosedComment",
-    isSeparator = false,
-    transformation = CommentValueInjection.injection
-)
-
+  val multiCommentRule = Rule(regex = "/*".r ~ (all.* - "*/".r) ~ "*/".r, tag = "multiComment", isSeparator = true, transformation = CommentValueInjection.injection)
+  // TODO
 
 
   val rules = stainless.collection.List(
@@ -186,10 +178,9 @@ val multiCommentRule = Rule(
     delimiterRule,
     whitespaceRule,
     singleCommentRule,
-    multiCommentRule,
-    unclosedCommentRule
+    multiCommentRule
+      // TODO: Add all your rules here
   )
-
   /**
     * Converts a Ziplex token to an Amy token, filtering out whitespace and comments.
     * When the Ziplex token cannot be converted, returns an ErrorToken with the appropriate message.
@@ -221,13 +212,8 @@ val multiCommentRule = Rule(
             // Make sure to ensure that the integer literal fits in a 32-bit signed integer.
             // TODO
             token.value match
-                case IntegerValue(text) =>
-                    val str = text.mkString("")
-                    val value = BigInt(str)
-                    if (value < Int.MinValue || value > Int.MaxValue) then
-                        Some(Tokens.ErrorToken(s"Integer literal out of bounds: ${value}").setPos(pos))
-                    else
-                        Some(Tokens.IntLitToken(value.toInt).setPos(pos))
+                case IntegerValue(e@@)
+            
         case _ if token.rule == stringLiteralRule =>
             token.value match
                 case StringLiteralValue(value) => 
@@ -237,21 +223,12 @@ val multiCommentRule = Rule(
         case _ if token.rule == delimiterRule =>
             token.value match
                 case DelimiterValue(value) => Some(Tokens.DelimiterToken(value.mkString("")).setPos(pos))
-        case _ if token.rule == whitespaceRule =>
-            None
-        case _ if token.rule == singleCommentRule =>
-            None
-        case _ if token.rule == multiCommentRule =>
-            None
-        case _ if token.rule == unclosedCommentRule =>
-            Some(Tokens.ErrorToken("Unclosed comment").setPos(pos))
-        //TODO
+        // TODO
         // Ignore whitespace and comments
         case _ =>
             None
     end match
   end toAmyToken
-
 
   override def run(ctx: amyc.utils.Context)(files: List[File]): Iterator[Token] = {
     import amyc.utils.ZipLexUtils.foreach
@@ -416,3 +393,39 @@ object ZiplexTokens {
       val injection: TokenValueInjection[Char] = TokenValueInjection(toValue, toCharacters)
   end CommentValueInjection
 }
+```
+
+
+presentation compiler configuration:
+Scala version: 3.8.2-bin-nonbootstrapped
+Classpath:
+<WORKSPACE>/.scala-build/compLang_d5c0a6989e/classes/main [exists ], <HOME>/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala3-library_3/3.8.2/scala3-library_3-3.8.2.jar [exists ], <HOME>/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/3.8.2/scala-library-3.8.2.jar [exists ], <HOME>/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/sourcegraph/semanticdb-javac/0.10.0/semanticdb-javac-0.10.0.jar [exists ], <WORKSPACE>/.scala-build/compLang_d5c0a6989e/classes/main/META-INF/best-effort [missing ]
+Options:
+-Xsemanticdb -sourceroot <WORKSPACE> -Ywith-best-effort-tasty
+
+
+
+
+#### Error stacktrace:
+
+```
+scala.collection.LinearSeqOps.apply(LinearSeq.scala:134)
+	scala.collection.LinearSeqOps.apply$(LinearSeq.scala:38)
+	scala.collection.immutable.List.apply(List.scala:83)
+	dotty.tools.pc.InferCompletionType$.inferType(InferExpectedType.scala:94)
+	dotty.tools.pc.InferCompletionType$.inferType(InferExpectedType.scala:62)
+	dotty.tools.pc.completions.Completions.advancedCompletions(Completions.scala:543)
+	dotty.tools.pc.completions.Completions.completions(Completions.scala:131)
+	dotty.tools.pc.completions.CompletionProvider.completions(CompletionProvider.scala:139)
+	dotty.tools.pc.ScalaPresentationCompiler.complete$$anonfun$1(ScalaPresentationCompiler.scala:197)
+	scala.meta.internal.pc.CompilerAccess.withSharedCompiler(CompilerAccess.scala:149)
+	scala.meta.internal.pc.CompilerAccess.$anonfun$1(CompilerAccess.scala:93)
+	scala.meta.internal.pc.CompilerAccess.onCompilerJobQueue$$anonfun$1(CompilerAccess.scala:210)
+	scala.meta.internal.pc.CompilerJobQueue$Job.run(CompilerJobQueue.scala:153)
+	java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	java.base/java.lang.Thread.run(Thread.java:1583)
+```
+#### Short summary: 
+
+java.lang.IndexOutOfBoundsException: 0
