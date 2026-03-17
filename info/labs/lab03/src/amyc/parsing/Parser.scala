@@ -112,17 +112,17 @@ object Parser extends Pipeline[Iterator[Token], Program]
   lazy val expr: Syntax[Expr] = recursive { 
 
     lazy val unaryExpr: Syntax[Expr] = 
-      (op("-") ~ unaryExpr).map { case start ~ e => Neg(e).setPos(start) } |
-      (op("!") ~ unaryExpr).map { case start ~ e => Not(e).setPos(start) } |
+      (op("-") ~ simpleExpr).map { case start ~ e => Neg(e).setPos(start) } |
+      (op("!") ~ simpleExpr).map { case start ~ e => Not(e).setPos(start) } |
       simpleExpr
 
     lazy val binOpExpr: Syntax[Expr] = operators(unaryExpr)(
-      op("*") | op("/") | op("%") is LeftAssociative,
-      op("+") | op("-") | op("++") is LeftAssociative,
-      op("<") | op("<=") is LeftAssociative,
-      op("==") is LeftAssociative,
-      op("&&") is LeftAssociative,
-      op("||") is LeftAssociative
+      op("*") | op("/") | op("%") `is` LeftAssociative,
+      op("+") | op("-") | op("++") `is` LeftAssociative,
+      op("<") | op("<=") `is` LeftAssociative,
+      op("==") `is` LeftAssociative,
+      op("&&") `is` LeftAssociative,
+      op("||") `is` LeftAssociative
     ) {
       case (lhs, OperatorToken(opString), rhs) => opString match {
         case "*" => Times(lhs, rhs).setPos(lhs)
