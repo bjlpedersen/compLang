@@ -139,25 +139,24 @@ object Parser extends Pipeline[Iterator[Token], Program]
       }
     }
 
-    val matchExpr: Syntax[Expr] = 
-      (binOpExpr ~ opt(kw("match") ~ "{" ~ many1(matchCase) ~ "}")).map {
-        case e ~ None => e
-        case e ~ Some(_ ~ _ ~ cases ~ _) => Match(e, cases.toList).setPos(e)
-      }
-
-    val matchIfErrorExpr: Syntax[Expr] = 
+    lazy val ifOrBinOpExpr: Syntax[Expr] =
       (kw("if") ~ "(" ~ expr ~ ")" ~ kw("then") ~ expr ~ kw("else") ~ expr ~ kw("end") ~ kw("if")).map {
         case i ~ _ ~ cond ~ _ ~ _ ~ thenn ~ _ ~ elze ~ _ ~ _ => Ite(cond, thenn, elze).setPos(i)
       } |
-      (kw("error") ~ "(" ~ expr ~ ")").map {
-        case err ~ _ ~ msg ~ _ => Error(msg).setPos(err)
-      } |
-      matchExpr
+      binOpExpr
 
-    (kw("val") ~ parameter ~ "=" ~ matchIfErrorExpr ~ ";" ~ expr).map { 
+    val matchIfExpr: Syntax[Expr] = 
+      (ifOrBinOpExpr ~ many(kw("match") ~ "{" ~ many1(matchCase) ~ "}")).map {
+        case baseExpr ~ matchClauses => 
+          matchClauses.foldLeft(baseExpr) {
+            case (acc, _ ~ _ ~ cases ~ _) => Match(acc, cases.toList).setPos(acc)
+          }
+      }
+
+    (kw("val") ~ parameter ~ "=" ~ matchIfExpr ~ ";" ~ expr).map { 
       case v ~ param ~ _ ~ value ~ _ ~ body => Let(param, value, body).setPos(v)
     } |
-    (matchIfErrorExpr ~ opt(";" ~ expr)).map {
+    (matchIfExpr ~ opt(";" ~ expr)).map {
       case e ~ None => e
       case e ~ Some(_ ~ seq) => Sequence(e, seq).setPos(e)
     }
@@ -197,7 +196,11 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
   // HINT: It is useful to have a restricted set of expressions that don't include any more operators on the outer level.
   lazy val simpleExpr: Syntax[Expr] = 
-    literal.up[Expr] | variableOrCall |  ("(" ~>~ expr ~<~ ")")
+    literal.up[Expr] | variableOrCall |
+    (kw("error") ~ "(" ~ expr ~ ")").map {
+      case err ~ _ ~ msg ~ _ => Error(msg).setPos(err)
+    } |
+    ("(" ~>~ expr ~<~ ")")
 
   lazy val arguments: Syntax[List[Expr]] =
       ("(" ~>~ repsep(expr, ",").map(_.toList) ~<~ ")")
