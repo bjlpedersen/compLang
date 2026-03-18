@@ -185,7 +185,7 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
   // A pattern as part of a mach case.
   lazy val pattern: Syntax[Pattern] = recursive { 
-    literalPattern | wildPattern | caseClassPatternAndID
+    literalPattern | wildPattern | caseClassPatternAndID | unitPattern
   }
 
 
