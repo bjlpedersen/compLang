@@ -216,12 +216,20 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
 
   // HINT: It is useful to have a restricted set of expressions that don't include any more operators on the outer level.
+
+  lazy val parenOrUnitExpr: Syntax[Expr] =
+  ("(" ~ opt(expr) ~ ")").map {
+    case lp ~ None ~ _    => UnitLiteral().setPos(lp)
+    case _  ~ Some(e) ~ _ => e
+  }
+
+
   lazy val simpleExpr: Syntax[Expr] = 
     literal.up[Expr] | variableOrCall |
     (kw("error") ~ "(" ~ expr ~ ")").map {
       case err ~ _ ~ msg ~ _ => Error(msg).setPos(err)
     } |
-    ("(" ~>~ expr ~<~ ")")
+    parenOrUnitExpr
 
   lazy val arguments: Syntax[List[Expr]] =
       ("(" ~>~ repsep(expr, ",").map(_.toList) ~<~ ")")
