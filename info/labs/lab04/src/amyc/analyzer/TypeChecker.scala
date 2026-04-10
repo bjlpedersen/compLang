@@ -41,13 +41,36 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
           topLevelConstraint(IntType)
         case Equals(lhs, rhs) =>
           // HINT: Take care to implement the specified Amy semantics
-          ???  // TODO
+          val tv = TypeVariable.fresh()
+          topLevelConstraint(BooleanType) ++ genConstraints(lhs, tv) ++ genConstraints(rhs, tv)
         case Match(scrut, cases) =>
           // Returns additional constraints from within the pattern with all bindings
           // from identifiers to types for names bound in the pattern.
           // (This is analogous to `transformPattern` in NameAnalyzer.)
           def patternBindings(pat: Pattern, expected: Type): (List[Constraint], Map[Identifier, Type]) = {
-            ???  // TODO
+            pat match {
+              case WildcardPattern() =>
+                (Nil, Map.empty)
+              case IdPattern(name) =>
+                (Nil, Map(name -> expected))
+              case LiteralPattern(lit) =>
+                (genConstraints(lit, expected), Map.empty)
+              case CaseClassPattern(constr, args) =>
+                val sig = table.getConstructor(constr).get
+                val constrConstraint = Constraint(ClassType(sig.parent), expected, pat.position)
+                val pairs = (args zip sig.argTypes).map { case (argPat, argType) =>
+                  patternBindings(argPat, argType)
+                }
+                var constraints = List(constrConstraint)
+                var bindings = Map[Identifier, Type]()
+                
+                for ((argConstraints, argBindings) <- pairs) {
+                  constraints = constraints ++ argConstraints
+                  bindings = bindings ++ argBindings
+                }
+                
+                (constraints, bindings)
+            }
           }
 
           def handleCase(cse: MatchCase, scrutExpected: Type): List[Constraint] = {
