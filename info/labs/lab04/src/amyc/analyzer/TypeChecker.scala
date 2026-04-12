@@ -4,6 +4,7 @@ package analyzer
 import amyc.utils._
 import amyc.ast.SymbolicTreeModule._
 import amyc.ast.Identifier
+import amyc.parsing.Parser.typeTree
 
 // The type checker for Amy
 // Takes a symbolic program and rejects it if it does not follow the Amy typing rules.
@@ -161,6 +162,16 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
       constraints match {
         case Nil => ()
         case Constraint(found, expected, pos) :: more =>
+          println(constraints)
+          println(found)
+          println(expected)
+          println(found == expected)
+          println(found == TypeVariable)
+          println("===============================")
+
+          solveConstraints(more)
+            
+          
           // HINT: You can use the `subst_*` helper above to replace a type variable
           //       by another type in your current set of constraints.
           ???  // TODO

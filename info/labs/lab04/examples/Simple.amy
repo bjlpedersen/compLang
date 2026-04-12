@@ -1,0 +1,3 @@
+object Simple
+  true + 2
+end Simple
