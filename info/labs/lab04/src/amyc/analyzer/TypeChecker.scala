@@ -15,7 +15,7 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
 
     val (program, table) = v
 
-    case class Constraint(found: Type, expected: Type, pos: Position)
+    case class Constraint(expected: Type, found: Type, pos: Position)
 
     // Represents a type variable.
     // It extends Type, but it is meant only for internal type checker use,
@@ -35,7 +35,7 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
       // This helper returns a list of a single constraint recording the type
       //  that we found (or generated) for the current expression `e`
       def topLevelConstraint(found: Type): List[Constraint] =
-        List(Constraint(found, expected, e.position))
+        List(Constraint(expected, found, e.position))
       
       e match {
         case IntLiteral(_) =>
@@ -58,7 +58,7 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
                 (genConstraints(lit, expected), Map.empty)
               case CaseClassPattern(constr, args) =>
                 val sig = table.getConstructor(constr).get
-                val constrConstraint = Constraint(ClassType(sig.parent), expected, pat.position)
+                val constrConstraint = Constraint(expected, ClassType(sig.parent), pat.position)
                 val pairs = (args zip sig.argTypes).map { case (argPat, argType) =>
                   patternBindings(argPat, argType)
                 }
@@ -142,8 +142,8 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
     // Given a list of constraints `constraints`, replace every occurence of type variable
     //  with id `from` by type `to`.
     def subst_*(constraints: List[Constraint], from: Int, to: Type): List[Constraint] = {
-      constraints map { case Constraint(found, expected, pos) =>
-        Constraint(subst(found, from, to), subst(expected, from, to), pos)
+      constraints map { case Constraint(expected, found, pos) =>
+        Constraint(subst(expected, from, to), subst(found, from, to), pos)
       }
     }
 
@@ -161,12 +161,12 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
     def solveConstraints(constraints: List[Constraint]): Unit = {
       constraints match {
         case Nil => ()
-        case Constraint(found, expected, pos) :: more =>
+        case Constraint(expected, found, pos) :: more =>
           println(constraints)
-          println(found)
           println(expected)
-          println(found == expected)
-          println(found == TypeVariable)
+          println(found)
+          println(expected == found)
+          println(expected == TypeVariable)
           println("===============================")
 
           solveConstraints(more)
