@@ -162,19 +162,28 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
       constraints match {
         case Nil => ()
         case Constraint(expected, found, pos) :: more =>
-          println(constraints)
+          /*println(constraints)
           println(expected)
           println(found)
-          println(expected == found)
-          println(expected == TypeVariable)
-          println("===============================")
+          println("===============================")*/
 
-          solveConstraints(more)
+          (expected, found) match
+            case Tuple2(tv: TypeVariable, t) => solveConstraints(subst_*(more, tv.id, t))
+            case Tuple2(t, tv: TypeVariable) => solveConstraints(subst_*(more, tv.id, t))
+            case Tuple2(_, _) => 
+              if (expected != found){
+                ctx.reporter.error(f"expcted type $expected found $found", pos)
+              }
+              else{
+                solveConstraints(more)
+              }
             
           
+          
+
           // HINT: You can use the `subst_*` helper above to replace a type variable
           //       by another type in your current set of constraints.
-          ???  // TODO
+          // TODO
       }
     }
 
