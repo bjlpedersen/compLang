@@ -58,6 +58,38 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
           // The comments are optional but can help you debug.
           Comment(expr.toString) <:> Const(i)
 
+        case BooleanLiteral(v) =>
+          Comment(expr.toString) <:> Const(v ? 1: 0)
+
+        case StringLiteral(string) =>
+          // WARNING could have problems if string is empty. Not sure of correctness
+          Comment(expr.toString) <:> string.map(c => Const(c.toInt)).reduce(_ <:> _)
+
+        case UnitLiteral =>
+          Comment(expr.toString)
+
+        case Plus(lhs, rhs) => cgExpr(lhs) <:> Add <:> cgExpr(rhs)
+
+        case Minus(lhs, rhs) => cgExpr(lhs) <:> Sub <:> cgExpr(rhs)
+
+        case Times(lhs, rhs) => cgExpr(lhs) <:> Mul <:> cgExpr(rhs)
+
+        case Div(lhs, rhs) => cgExpr(lhs) <:> Div <:> cgExpr(rhs)
+
+        case Mod(lhs, rhs) => cgExpr(lhs) <:> Rem <:> cgExpr(rhs)
+
+        case LessThan(lhs, rhs) => cgExpr(lhs) <:> Lt_s <:> cgExpr(rhs)
+
+        case LessEquals(lhs, rhs) => cgExpr(lhs) <:> Le_s <:> cgExpr(rhs)
+
+        case And(lhs, rhs) => cgExpr(lhs) <:> And <:> cgExpr(rhs)
+
+        case Or(lhs, rhs) => cgExpr(lhs) <:> Or <:> cgExpr(rhs)
+
+        case Equal(lhs, rhs) => cgExpr(lhs) <:> Eq <:> cgExpr(rhs)
+
+        case Concat(lhs, rhs) => cgExpr(lhs) <:> Drop <:> cgExpr(rhs)   // WARNING this might be incorrect
+
         case Match(scrut, cases) =>
 
           // Checks if a value matches a pattern.
@@ -79,6 +111,8 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
           }
 
           ???
+
+        // Still have to do control flow
         
         case _ => ???
       }
