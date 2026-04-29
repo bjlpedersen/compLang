@@ -59,7 +59,7 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
           Comment(expr.toString) <:> Const(i)
 
         case BooleanLiteral(v) =>
-          Comment(expr.toString) <:> Const(v ? 1: 0)
+          Comment(expr.toString) <:> Const(if v 1 else 0)
 
         case StringLiteral(string) =>
           // WARNING could have problems if string is empty. Not sure of correctness
@@ -68,49 +68,97 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
         case UnitLiteral =>
           Comment(expr.toString)
 
-        case Plus(lhs, rhs) => cgExpr(lhs) <:> Add <:> cgExpr(rhs)
+        case Plus(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Add
 
-        case Minus(lhs, rhs) => cgExpr(lhs) <:> Sub <:> cgExpr(rhs)
+        case Minus(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Sub
 
-        case Times(lhs, rhs) => cgExpr(lhs) <:> Mul <:> cgExpr(rhs)
+        case Times(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Mul
 
-        case Div(lhs, rhs) => cgExpr(lhs) <:> Div <:> cgExpr(rhs)
+        case Div(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Div
 
-        case Mod(lhs, rhs) => cgExpr(lhs) <:> Rem <:> cgExpr(rhs)
+        case Mod(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Rem
 
-        case LessThan(lhs, rhs) => cgExpr(lhs) <:> Lt_s <:> cgExpr(rhs)
+        case LessThan(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Lt_s
 
-        case LessEquals(lhs, rhs) => cgExpr(lhs) <:> Le_s <:> cgExpr(rhs)
+        case LessEquals(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Le_s
 
-        case And(lhs, rhs) => cgExpr(lhs) <:> And <:> cgExpr(rhs)
+        case And(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> And
 
-        case Or(lhs, rhs) => cgExpr(lhs) <:> Or <:> cgExpr(rhs)
+        case Or(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Or
 
-        case Equal(lhs, rhs) => cgExpr(lhs) <:> Eq <:> cgExpr(rhs)
+        case Equal(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Eq
 
-        case Concat(lhs, rhs) => cgExpr(lhs) <:> Drop <:> cgExpr(rhs)   // WARNING this might be incorrect
+        case Concat(lhs:String, rhs:String) => (lhs ++ rhs).map(c => Const(c.toInt)).reduce(_ <:> _)
 
         case Match(scrut, cases) =>
+          val scrutLocal = lh.getFreshLocal()
 
           // Checks if a value matches a pattern.
           // Assumes value is on top of stack (and CONSUMES it)
           // Returns the code to check the value, and a map of bindings.
           def matchAndBind(pat: Pattern): (Code, Map[Identifier, Int]) = pat match {
+            case WildcardPattern() =>
+              // Always matches; drop the scrutinee and push 1 (true).
+              (Comment(pat.toString) <:> Drop <:> Const(1), Map.empty)
+
             case IdPattern(id) =>
               val idLocal = lh.getFreshLocal()
-              (Comment(pat.toString) <:> 
+              (Comment(pat.toString) <:>
               // Assign val to id.
-              SetLocal(idLocal) <:> 
+              SetLocal(idLocal) <:>
               // Return true (IdPattern always matches).
               Const(1),
               // Let the code generation of the expression which corresponds to this pattern
               // know that the bound id is at local idLocal.
               Map(id -> idLocal))
-            
-            case _ => ???
+
+            case LiteralPattern(lit) =>
+              // Scrutinee is on stack; push the literal value and compare with Eq.
+              val checkCode: Code = lit match {
+                case IntLiteral(i)     => Const(i) <:> Eq
+                case BooleanLiteral(b) => Const(if (b) 1 else 0) <:> Eq
+                case UnitLiteral()     => Drop <:> Const(1)
+              }
+              (Comment(pat.toString) <:> checkCode, Map.empty)
+
+            case CaseClassPattern(constr, args) =>
+              val constrSig = table.getConstructor(constr).get
+              val adtLocal  = lh.getFreshLocal()
+
+              // Store the ADT pointer and check its constructor tag.
+              val storePtr: Code = SetLocal(adtLocal)
+              val checkTag: Code = GetLocal(adtLocal) <:> Load <:> Const(constrSig.index) <:> Eq
+
+              // For each field, load it, recursively check the sub-pattern, AND with running result.
+              val (fullCheck, allBindings) =
+                args.zipWithIndex.foldLeft((checkTag, Map.empty[Identifier, Int])) {
+                  case ((accCode, accBindings), (arg, i)) =>
+                    val loadField: Code = GetLocal(adtLocal) <:> adtField(i) <:> Load
+                    val (argCheck, argBindings) = matchAndBind(arg)
+                    (accCode <:> loadField <:> argCheck <:> And, accBindings ++ argBindings)
+                }
+
+              (Comment(pat.toString) <:> storePtr <:> fullCheck, allBindings)
           }
 
-          ???
+          // Evaluate the scrutinee once and store it so we can reuse it for each case.
+          val evalScrut: Code = cgExpr(scrut) <:> SetLocal(scrutLocal)
+
+          // Build a nested if-else chain from last case to first.
+          // Base is Unreachable: traps if no case matched (Amy MatchError).
+          val casesCode: Code = cases.foldRight(Unreachable: Code) {
+            case (MatchCase(pat, body), elseCode) =>
+              val (checkCode, bindings) = matchAndBind(pat)
+              val bodyCode = cgExpr(body)(locals ++ bindings, lh)
+              GetLocal(scrutLocal) <:> checkCode <:>
+              If_i32 <:>
+                bodyCode <:>
+              Else <:>
+                elseCode <:>
+              End
+          }
+
+          Comment(expr.toString) <:> evalScrut <:> casesCode
 
         // Still have to do control flow
         
