@@ -59,7 +59,7 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
           Comment(expr.toString) <:> Const(i)
 
         case BooleanLiteral(v) =>
-          Comment(expr.toString) <:> Const(v ? 1: 0)
+          Comment(expr.toString) <:> Const(if v 1 else 0)
 
         case StringLiteral(string) =>
           // WARNING could have problems if string is empty. Not sure of correctness
@@ -68,27 +68,27 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
         case UnitLiteral =>
           Comment(expr.toString)
 
-        case Plus(lhs, rhs) => cgExpr(lhs) <:> Add <:> cgExpr(rhs)
+        case Plus(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Add
 
-        case Minus(lhs, rhs) => cgExpr(lhs) <:> Sub <:> cgExpr(rhs)
+        case Minus(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Sub
 
-        case Times(lhs, rhs) => cgExpr(lhs) <:> Mul <:> cgExpr(rhs)
+        case Times(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Mul
 
-        case Div(lhs, rhs) => cgExpr(lhs) <:> Div <:> cgExpr(rhs)
+        case Div(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Div
 
-        case Mod(lhs, rhs) => cgExpr(lhs) <:> Rem <:> cgExpr(rhs)
+        case Mod(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Rem
 
-        case LessThan(lhs, rhs) => cgExpr(lhs) <:> Lt_s <:> cgExpr(rhs)
+        case LessThan(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Lt_s
 
-        case LessEquals(lhs, rhs) => cgExpr(lhs) <:> Le_s <:> cgExpr(rhs)
+        case LessEquals(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Le_s
 
-        case And(lhs, rhs) => cgExpr(lhs) <:> And <:> cgExpr(rhs)
+        case And(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> And
 
-        case Or(lhs, rhs) => cgExpr(lhs) <:> Or <:> cgExpr(rhs)
+        case Or(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Or
 
-        case Equal(lhs, rhs) => cgExpr(lhs) <:> Eq <:> cgExpr(rhs)
+        case Equal(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Eq
 
-        case Concat(lhs, rhs) => cgExpr(lhs) <:> Drop <:> cgExpr(rhs)   // WARNING this might be incorrect
+        case Concat(lhs:String, rhs:String) => (lhs ++ rhs).map(c => Const(c.toInt)).reduce(_ <:> _)
 
         case Match(scrut, cases) =>
           val scrutLocal = lh.getFreshLocal()
@@ -140,8 +140,6 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
 
               (Comment(pat.toString) <:> storePtr <:> fullCheck, allBindings)
           }
-
-          // Still have to do control flow
 
           // Evaluate the scrutinee once and store it so we can reuse it for each case.
           val evalScrut: Code = cgExpr(scrut) <:> SetLocal(scrutLocal)
