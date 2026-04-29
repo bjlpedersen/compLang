@@ -114,6 +114,54 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
 
         // Still have to do control flow
         
+        case Variable(name) =>
+          Comment(expr.toString) <:>
+          GetLocal(locals(name))
+
+        case Let(df, value, body) =>
+          val localIdx = lh.getFreshLocal()
+          Comment(expr.toString) <:>
+          cgExpr(value) <:>
+          SetLocal(localIdx) <:>
+          cgExpr(body)(locals + (df.name -> localIdx), lh)
+
+        case AmyCall(qname, args) =>
+          val sig = table.getFunction(qname)
+          if (sig.isDefined) {
+            // Function call
+            args.map(cgExpr) <:>
+            Call(fullName(sig.get.owner, qname))
+          } else {
+            // Constructor call
+            val constr = table.getConstructor(qname).get
+            val oldMem = lh.getFreshLocal()
+            val argAssignments = args.zipWithIndex.map { case (arg, i) =>
+              GetLocal(oldMem) <:>
+              Const((i + 1) * 4) <:>
+              Add <:>
+              cgExpr(arg) <:>
+              Store
+            }
+            Comment(expr.toString) <:>
+            GetGlobal(memoryBoundary) <:>
+            SetLocal(oldMem) <:>
+            GetGlobal(memoryBoundary) <:>
+            Const((args.size + 1) * 4) <:>
+            Add <:>
+            SetGlobal(memoryBoundary) <:>
+            GetLocal(oldMem) <:>
+            Const(constr.index) <:>
+            Store <:>
+            argAssignments <:>
+            GetLocal(oldMem)
+          }
+
+        case Error(msg) =>
+          Comment(expr.toString) <:>
+          cgExpr(msg) <:>
+          Call("Std_printString") <:>
+          Unreachable
+          
         case _ => ???
       }
     }
