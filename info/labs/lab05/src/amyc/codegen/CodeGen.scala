@@ -59,11 +59,11 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
           Comment(expr.toString) <:> Const(i)
 
         case BooleanLiteral(v) =>
-          Comment(expr.toString) <:> Const(if v 1 else 0)
+          Comment(expr.toString) <:> Const(if v then 1 else 0)
 
         case StringLiteral(string) =>
-          // WARNING could have problems if string is empty. Not sure of correctness
-          Comment(expr.toString) <:> string.map(c => Const(c.toInt)).reduce(_ <:> _)
+          ???
+          // Comment(expr.toString) <:> string.map(c => Const(c.toInt)).reduce(_ <:> _)
 
         case UnitLiteral =>
           Comment(expr.toString)
@@ -74,7 +74,7 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
 
         case Times(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Mul
 
-        case Div(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Div
+        case AmyDiv(lhs: Expr, rhs:Expr) => cgExpr(lhs) <:> cgExpr(rhs) <:> Div
 
         case Mod(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Rem
 
@@ -82,13 +82,17 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
 
         case LessEquals(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Le_s
 
-        case And(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> And
+        case AmyAnd(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> And
 
-        case Or(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Or
+        case AmyOr(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Or
 
-        case Equal(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Eq
+        case Equals(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Eq
 
-        case Concat(lhs:String, rhs:String) => (lhs ++ rhs).map(c => Const(c.toInt)).reduce(_ <:> _)
+        case Concat(lhs, rhs) => ???
+          //(lhs ++ rhs).map(c => Const(c.toInt)).reduce(_ <:> _)
+
+        case Ite(cond: Expr, thenn: Expr, elze: Expr) => 
+          If_void <:> cgExpr(cond) <:> cgExpr(thenn) <:> Else <:> cgExpr(elze) <:> End
 
         case Match(scrut, cases) =>
           val scrutLocal = lh.getFreshLocal()
@@ -160,8 +164,6 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
 
           Comment(expr.toString) <:> evalScrut <:> casesCode
 
-        // Still have to do control flow
-        
         case Variable(name) =>
           Comment(expr.toString) <:>
           GetLocal(locals(name))
