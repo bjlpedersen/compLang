@@ -62,11 +62,11 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
           Comment(expr.toString) <:> Const(if v then 1 else 0)
 
         case StringLiteral(string) =>
-          ???
+          Comment(expr.toString) <:> mkString(string)
           // Comment(expr.toString) <:> string.map(c => Const(c.toInt)).reduce(_ <:> _)
 
-        case UnitLiteral =>
-          Comment(expr.toString)
+        case UnitLiteral() =>
+          Comment(expr.toString) <:> Const(0)
 
         case Plus(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Add
 
@@ -82,17 +82,19 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
 
         case LessEquals(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Le_s
 
-        case AmyAnd(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> And
+        case AmyAnd(lhs, rhs) =>
+          cgExpr(lhs) <:> If_i32 <:> cgExpr(rhs) <:> Else <:> Const(0) <:> End
 
-        case AmyOr(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Or
+        case AmyOr(lhs, rhs) =>
+          cgExpr(lhs) <:> If_i32 <:> Const(1) <:> Else <:> cgExpr(rhs) <:> End
 
         case Equals(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Eq
 
-        case Concat(lhs, rhs) => ???
+        case Concat(lhs, rhs) => cgExpr(lhs) <:> cgExpr(rhs) <:> Call("String_concat")
           //(lhs ++ rhs).map(c => Const(c.toInt)).reduce(_ <:> _)
 
-        case Ite(cond: Expr, thenn: Expr, elze: Expr) => 
-          If_void <:> cgExpr(cond) <:> cgExpr(thenn) <:> Else <:> cgExpr(elze) <:> End
+        case Ite(cond: Expr, thenn: Expr, elze: Expr) =>
+          cgExpr(cond) <:> If_i32 <:> cgExpr(thenn) <:> Else <:> cgExpr(elze) <:> End
 
         case Match(scrut, cases) =>
           val scrutLocal = lh.getFreshLocal()
@@ -122,6 +124,7 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
                 case IntLiteral(i)     => Const(i) <:> Eq
                 case BooleanLiteral(b) => Const(if (b) 1 else 0) <:> Eq
                 case UnitLiteral()     => Drop <:> Const(1)
+                case StringLiteral(s)  => mkString(s) <:> Eq
               }
               (Comment(pat.toString) <:> checkCode, Map.empty)
 
@@ -212,7 +215,14 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
           Call("Std_printString") <:>
           Unreachable
           
-        case _ => ???
+        case Not(e) =>
+          Comment(expr.toString) <:> cgExpr(e) <:> Eqz
+
+        case Neg(e) =>
+          Comment(expr.toString) <:> Const(0) <:> cgExpr(e) <:> Sub
+
+        case Sequence(e1, e2) =>
+          Comment(expr.toString) <:> cgExpr(e1) <:> Drop <:> cgExpr(e2)
       }
     }
 
