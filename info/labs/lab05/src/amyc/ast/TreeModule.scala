@@ -60,7 +60,9 @@ trait TreeModule { self =>
   case class Neg(e: Expr) extends Expr
 
   // Function/constructor call
-  case class Call(qname: QualifiedName, args: List[Expr]) extends Expr
+  // Each argument is optionally named: None means positional (e.g. foo(1)),
+  // Some("x") means named (e.g. foo(x = 1)). Names are resolved by the type checker.
+  case class Call(qname: QualifiedName, args: List[(Option[String], Expr)]) extends Expr
   // The ; operator
   case class Sequence(e1: Expr, e2: Expr) extends Expr
   // Local variable definition
@@ -91,8 +93,10 @@ trait TreeModule { self =>
     def paramNames = params.map(_.name)
   }
   case class AbstractClassDef(name: Name) extends ClassOrFunDef
-  case class CaseClassDef(name: Name, fields: List[TypeTree], parent: Name) extends ClassOrFunDef
-  case class ParamDef(name: Name, tt: TypeTree) extends Definition
+  //List[ParamDef] because the compiler needs to know which field is called x to match the arguments to the right position  
+  case class CaseClassDef(name: Name, fields: List[ParamDef], parent: Name) extends ClassOrFunDef
+  //Add third parameter to store the optional default 
+  case class ParamDef(name: Name, tt: TypeTree, default: Option[Expr] = None) extends Definition
 
   // Types
   trait Type
