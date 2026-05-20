@@ -36,7 +36,7 @@ trait Printer {
         "abstract class " <:> printName(name)
 
       case CaseClassDef(name, fields, parent) =>
-        def printField(f: TypeTree) = "v: " <:> rec(f)
+        def printField(f: ParamDef) = "v: " <:> rec(f.tt)
         "case class " <:> name <:> "(" <:> Lined(fields map printField, ", ") <:> ") extends " <:> parent
 
       case FunDef(name, params, retType, body) =>
@@ -46,7 +46,7 @@ trait Printer {
           "end " <:> name
         )
 
-      case ParamDef(name, tpe) =>
+      case ParamDef(name, tpe, _) =>
         name <:> ": " <:> rec(tpe)
 
       /* Expressions */
@@ -87,7 +87,7 @@ trait Printer {
       case Neg(e) =>
         "-(" <:> rec(e) <:> ")"
       case Call(name, args) =>
-        name <:> "(" <:> Lined(args map (rec(_)), ", ") <:> ")"
+        name <:> "(" <:> Lined(args map { case (_, e) => rec(e) }, ", ") <:> ")"
       case Sequence(lhs, rhs) =>
         val main = Stacked(
           rec(lhs, false) <:> ";",
