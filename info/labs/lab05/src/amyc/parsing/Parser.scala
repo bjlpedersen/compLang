@@ -55,7 +55,7 @@ object Parser extends Pipeline[Iterator[Token], Program]
       case abs ~ _ ~ id => AbstractClassDef(id).setPos(abs)
     } |
     (kw("case") ~ kw("class") ~ identifier ~ "(" ~ parameters ~ ")" ~ kw("extends") ~ identifier).map {
-      case c ~ _ ~ id ~ _ ~ params ~ _ ~ _ ~ parent => CaseClassDef(id, params.map(_.tt), parent).setPos(c)
+      case c ~ _ ~ id ~ _ ~ params ~ _ ~ _ ~ parent => CaseClassDef(id, params, parent).setPos(c)
     } |
     (kw("def") ~ identifier ~ "(" ~ parameters ~ ")" ~ ":" ~ typeTree ~ ":=" ~ expr ~ kw("end") ~ identifier).map {
       case d ~ id ~ _ ~ params ~ _ ~ _ ~ tpe ~ _ ~ body ~ _ ~ id1 => 
@@ -67,13 +67,19 @@ object Parser extends Pipeline[Iterator[Token], Program]
   
 
   // A list of parameter definitions.
-  lazy val parameters: Syntax[List[ParamDef]] = repsep(parameter, ",").map(_.toList)
+  lazy val parameters: Syntax[List[ParamDef]] = repsep(paramWithDefault, ",").map(_.toList)
 
   // A parameter definition, i.e., an identifier along with the expected type.
   lazy val parameter: Syntax[ParamDef] = 
     (identifierPos ~ ":" ~ typeTree).map {
       case (name, pos) ~ _ ~ tpe => ParamDef(name, tpe).setPos(pos)
     }
+
+  // New rule — used for function and case class parameters only
+  lazy val paramWithDefault: Syntax[ParamDef] =
+    (identifierPos ~ ":" ~ typeTree ~ opt("=" ~>~ expr)).map {
+      case (name, pos) ~ _ ~ tpe ~ default => ParamDef(name, tpe, default).setPos(pos)
+  }
 
   // A type expression.
   lazy val typeTree: Syntax[TypeTree] = primitiveType | identifierType
@@ -231,14 +237,25 @@ object Parser extends Pipeline[Iterator[Token], Program]
     } |
     parenOrUnitExpr
 
-  lazy val arguments: Syntax[List[Expr]] =
-      ("(" ~>~ repsep(expr, ",").map(_.toList) ~<~ ")")
-    
+  // Arguments list: parses exprs separated by commas, converting NamedArg nodes to named pairs
+  lazy val arguments: Syntax[List[(Option[String], Expr)]] =
+    ("(" ~>~ repsep(expr, ",").map(_.toList) ~<~ ")").map { args =>
+      args.map {
+        case NamedArg(name, value) => (Some(name), value)
+        case e                     => (None, e)
+      }
+    }
+
   lazy val variableOrCall: Syntax[Expr] =
-    (identifierPos ~ opt("." ~>~ identifier) ~ opt(arguments)).map {
-      case (name, pos) ~ None ~ None => Variable(name).setPos(pos)
-      case (name, pos) ~ None ~ Some(args) => Call(QualifiedName(None, name), args).setPos(pos)
-      case (module, pos) ~ Some(name) ~ Some(args) => Call(QualifiedName(Some(module), name), args).setPos(pos)
+    (identifierPos ~ opt("." ~>~ identifier) ~ opt(arguments) ~ opt("=" ~>~ expr)).map {
+      case (name, pos) ~ None ~ None ~ Some(value) =>
+        NamedArg(name, value).setPos(pos)
+      case (name, pos) ~ None ~ None ~ None =>
+        Variable(name).setPos(pos)
+      case (name, pos) ~ None ~ Some(args) ~ None =>
+        Call(QualifiedName(None, name), args).setPos(pos)
+      case (module, pos) ~ Some(name) ~ Some(args) ~ None =>
+        Call(QualifiedName(Some(module), name), args).setPos(pos)
       case _ => throw new AmycFatalError("Invalid variable or call")
     }
 

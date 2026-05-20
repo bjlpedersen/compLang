@@ -63,6 +63,9 @@ trait TreeModule { self =>
   // Each argument is optionally named: None means positional (e.g. foo(1)),
   // Some("x") means named (e.g. foo(x = 1)). Names are resolved by the type checker.
   case class Call(qname: QualifiedName, args: List[(Option[String], Expr)]) extends Expr
+  // Temporary node for named argument at call site: foo(x = 1)
+  // Only exists during parsing. Name analyzer converts this to (Some("x"), expr) pairs in Call.
+  case class NamedArg(argName: String, value: Expr) extends Expr
   // The ; operator
   case class Sequence(e1: Expr, e2: Expr) extends Expr
   // Local variable definition
