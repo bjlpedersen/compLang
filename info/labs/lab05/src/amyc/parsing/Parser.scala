@@ -151,8 +151,15 @@ object Parser extends Pipeline[Iterator[Token], Program]
       } |
       binOpExpr
 
-    val matchIfExpr: Syntax[Expr] = 
-      (ifOrBinOpExpr ~ many(kw("match") ~ "{" ~ many1(matchCase) ~ "}")).map {
+    lazy val namedOrExpr: Syntax[Expr] =
+      (ifOrBinOpExpr ~ opt("=" ~>~ ifOrBinOpExpr)).map {
+        case e ~ None => e
+        case Variable(name) ~ Some(rhs) => NamedArg(name, rhs).setPos(rhs)
+        case _ ~ Some(_) => throw new AmycFatalError("Named argument must have an identifier on the left side of '='")
+      }
+
+    val matchIfExpr: Syntax[Expr] =
+      (namedOrExpr ~ many(kw("match") ~ "{" ~ many1(matchCase) ~ "}")).map {
         case baseExpr ~ matchClauses => 
           matchClauses.foldLeft(baseExpr) {
             case (acc, _ ~ _ ~ cases ~ _) => Match(acc, cases.toList).setPos(acc)
@@ -247,16 +254,15 @@ object Parser extends Pipeline[Iterator[Token], Program]
     }
 
   lazy val variableOrCall: Syntax[Expr] =
-    (identifierPos ~ opt("." ~>~ identifier) ~ opt(arguments) ~ opt("=" ~>~ expr)).map {
-      case (name, pos) ~ None ~ None ~ Some(value) =>
-        NamedArg(name, value).setPos(pos)
-      case (name, pos) ~ None ~ None ~ None =>
+    (identifierPos ~ opt("." ~>~ identifier) ~ opt(arguments)).map {
+      case (name, pos) ~ None ~ None =>
         Variable(name).setPos(pos)
-      case (name, pos) ~ None ~ Some(args) ~ None =>
+      case (name, pos) ~ None ~ Some(args) =>
         Call(QualifiedName(None, name), args).setPos(pos)
-      case (module, pos) ~ Some(name) ~ Some(args) ~ None =>
+      case (module, pos) ~ Some(name) ~ Some(args) =>
         Call(QualifiedName(Some(module), name), args).setPos(pos)
-      case _ => throw new AmycFatalError("Invalid variable or call")
+      case (module, pos) ~ Some(name) ~ None =>
+        throw new AmycFatalError("Invalid qualified name without arguments")
     }
 
 
