@@ -63,7 +63,7 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
       m <- p.modules
       case cc@N.CaseClassDef(name, fields, parent) <- m.defs
     } {
-      val argTypes = fields map (tt => transformType(tt, m.name))
+      val argTypes = fields map (pd => transformType(pd.tt, m.name))
       val retType = table.getType(m.name, parent).getOrElse(fatal(s"Parent class $parent not found", cc))
       table.addConstructor(m.name, name, argTypes, retType)
     }
@@ -84,13 +84,12 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
     def transformDef(df: N.ClassOrFunDef, module: String): S.ClassOrFunDef = { df match {
       case N.AbstractClassDef(name) =>
         S.AbstractClassDef(table.getType(module, name).get)
-      case N.CaseClassDef(name, _, _) =>
+      case N.CaseClassDef(name, nomFields, _) =>
         val Some((sym, sig)): Option[(Identifier, ConstrSig)] = table.getConstructor(module, name) : @unchecked
-        S.CaseClassDef(
-          sym,
-          sig.argTypes map S.TypeTree.apply,
-          sig.parent
-        )
+        val symFields = nomFields.zip(sig.argTypes).map { case (nf, tpe) =>
+          S.ParamDef(Identifier.fresh(nf.name), S.TypeTree(tpe).setPos(nf.tt)).setPos(nf)
+        }
+        S.CaseClassDef(sym, symFields, sig.parent)
       case fd: N.FunDef =>
         transformFunDef(fd, module)
     }}.setPos(df)
@@ -107,7 +106,7 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
 
       val paramNames = params.map(_.name)
 
-      val newParams = params zip sig.argTypes map { case (pd@N.ParamDef(name, tt), tpe) =>
+      val newParams = params zip sig.argTypes map { case (pd@N.ParamDef(name, tt, _), tpe) =>
         val s = Identifier.fresh(name)
         S.ParamDef(s, S.TypeTree(tpe).setPos(tt)).setPos(pd)
       }
@@ -176,7 +175,7 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
               if (sig.argTypes.size != args.size) {
                 fatal(s"Wrong number of arguments for function/constructor $qname", expr)
               }
-              S.Call(sym, args map transformExpr)
+              S.Call(sym, args map { case (name, e) => (name, transformExpr(e)) })
           }
         case N.Sequence(e1, e2) =>
           S.Sequence(transformExpr(e1), transformExpr(e2))

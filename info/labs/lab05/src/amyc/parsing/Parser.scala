@@ -55,7 +55,7 @@ object Parser extends Pipeline[Iterator[Token], Program]
       case abs ~ _ ~ id => AbstractClassDef(id).setPos(abs)
     } |
     (kw("case") ~ kw("class") ~ identifier ~ "(" ~ parameters ~ ")" ~ kw("extends") ~ identifier).map {
-      case c ~ _ ~ id ~ _ ~ params ~ _ ~ _ ~ parent => CaseClassDef(id, params.map(_.tt), parent).setPos(c)
+      case c ~ _ ~ id ~ _ ~ params ~ _ ~ _ ~ parent => CaseClassDef(id, params, parent).setPos(c)
     } |
     (kw("def") ~ identifier ~ "(" ~ parameters ~ ")" ~ ":" ~ typeTree ~ ":=" ~ expr ~ kw("end") ~ identifier).map {
       case d ~ id ~ _ ~ params ~ _ ~ _ ~ tpe ~ _ ~ body ~ _ ~ id1 => 
@@ -67,13 +67,18 @@ object Parser extends Pipeline[Iterator[Token], Program]
   
 
   // A list of parameter definitions.
-  lazy val parameters: Syntax[List[ParamDef]] = repsep(parameter, ",").map(_.toList)
+  lazy val parameters: Syntax[List[ParamDef]] = repsep(paramWithDefault, ",").map(_.toList)
 
   // A parameter definition, i.e., an identifier along with the expected type.
   lazy val parameter: Syntax[ParamDef] = 
     (identifierPos ~ ":" ~ typeTree).map {
       case (name, pos) ~ _ ~ tpe => ParamDef(name, tpe).setPos(pos)
     }
+
+  lazy val paramWithDefault: Syntax[ParamDef] =
+    (identifierPos ~ ":" ~ typeTree ~ opt("=" ~>~ expr)).map {
+      case (name, pos) ~ _ ~ tpe ~ default => ParamDef(name, tpe, default).setPos(pos)
+  }
 
   lazy val tupleType: Syntax[TypeTree] = 
     ("(" ~ repsep(typeTree, ",") ~ ")").map {
@@ -155,8 +160,15 @@ object Parser extends Pipeline[Iterator[Token], Program]
       } |
       binOpExpr
 
-    val matchIfExpr: Syntax[Expr] = 
-      (ifOrBinOpExpr ~ many(kw("match") ~ "{" ~ many1(matchCase) ~ "}")).map {
+    lazy val namedOrExpr: Syntax[Expr] =
+      (ifOrBinOpExpr ~ opt("=" ~>~ ifOrBinOpExpr)).map {
+        case e ~ None => e
+        case Variable(name) ~ Some(rhs) => NamedArg(name, rhs).setPos(rhs)
+        case _ ~ Some(_) => throw new AmycFatalError("Named argument must have an identifier on the left side of '='")
+      }
+
+    val matchIfExpr: Syntax[Expr] =
+      (namedOrExpr ~ many(kw("match") ~ "{" ~ many1(matchCase) ~ "}")).map {
         case baseExpr ~ matchClauses => 
           matchClauses.foldLeft(baseExpr) {
             case (acc, _ ~ _ ~ cases ~ _) => Match(acc, cases.toList).setPos(acc)
@@ -250,15 +262,25 @@ object Parser extends Pipeline[Iterator[Token], Program]
     } |
     parenOrTupleOrUnitExpr
 
-  lazy val arguments: Syntax[List[Expr]] =
-      ("(" ~>~ repsep(expr, ",").map(_.toList) ~<~ ")")
-    
+  // Arguments list: parses exprs separated by commas, converting NamedArg nodes to named pairs
+  lazy val arguments: Syntax[List[(Option[String], Expr)]] =
+    ("(" ~>~ repsep(expr, ",").map(_.toList) ~<~ ")").map { args =>
+      args.map {
+        case NamedArg(name, value) => (Some(name), value)
+        case e                     => (None, e)
+      }
+    }
+
   lazy val variableOrCall: Syntax[Expr] =
     (identifierPos ~ opt("." ~>~ identifier) ~ opt(arguments)).map {
-      case (name, pos) ~ None ~ None => Variable(name).setPos(pos)
-      case (name, pos) ~ None ~ Some(args) => Call(QualifiedName(None, name), args).setPos(pos)
-      case (module, pos) ~ Some(name) ~ Some(args) => Call(QualifiedName(Some(module), name), args).setPos(pos)
-      case _ => throw new AmycFatalError("Invalid variable or call")
+      case (name, pos) ~ None ~ None =>
+        Variable(name).setPos(pos)
+      case (name, pos) ~ None ~ Some(args) =>
+        Call(QualifiedName(None, name), args).setPos(pos)
+      case (module, pos) ~ Some(name) ~ Some(args) =>
+        Call(QualifiedName(Some(module), name), args).setPos(pos)
+      case (module, pos) ~ Some(name) ~ None =>
+        throw new AmycFatalError("Invalid qualified name without arguments")
     }
 
 

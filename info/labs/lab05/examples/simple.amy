@@ -1,0 +1,12 @@
+object Hello
+  def foo(i: Int, j: Int = 42): Int := 
+    i + j 
+  end foo
+
+  Std.printInt(foo(0, 10));
+  Std.printInt(foo(0));
+
+  Std.printInt(foo(j = 5, i = 7));
+  Std.printInt(foo(i = 7))
+
+end Hello

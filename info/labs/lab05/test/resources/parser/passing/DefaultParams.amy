@@ -1,0 +1,8 @@
+object DefaultParams
+  def add(x: Int(32), y: Int(32) = 0): Int(32) :=
+    x + y
+  end add
+  def greet(name: String, greeting: String = "Hello"): String :=
+    greeting ++ name
+  end greet
+end DefaultParams

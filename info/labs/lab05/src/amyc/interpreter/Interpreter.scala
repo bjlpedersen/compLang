@@ -115,7 +115,7 @@ object Interpreter extends Pipeline[(Program, SymbolTable), Unit] {
         case Neg(e) =>
             IntValue(-interpret(e).asInt)
         case Call(qname, args) =>
-          val evaluatedArgs = args.map(interpret)
+          val evaluatedArgs = args.map { case (_, e) => interpret(e) }
           if (isConstructor(qname)) {
             CaseClassValue(qname, evaluatedArgs)
           } else {

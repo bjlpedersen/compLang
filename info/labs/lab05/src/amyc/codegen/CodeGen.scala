@@ -182,13 +182,13 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
           val sig = table.getFunction(qname)
           if (sig.isDefined) {
             // Function call
-            args.map(cgExpr) <:>
+            args.map { case (_, e) => cgExpr(e) } <:>
             Call(fullName(sig.get.owner, qname))
           } else {
             // Constructor call
             val constr = table.getConstructor(qname).get
             val oldMem = lh.getFreshLocal()
-            val argAssignments = args.zipWithIndex.map { case (arg, i) =>
+            val argAssignments = args.zipWithIndex.map { case ((_, arg), i) =>
               GetLocal(oldMem) <:>
               Const((i + 1) * 4) <:>
               Add <:>

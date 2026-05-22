@@ -123,7 +123,7 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
               (sig.argTypes, sig.retType)
           }
           topLevelConstraint(retType) ++
-            (args zip argTypes).flatMap { case (arg, argType) => genConstraints(arg, argType) }
+            (args zip argTypes).flatMap { case ((_, arg), argType) => genConstraints(arg, argType) }
         case Sequence(e1, e2) =>
           val tv = TypeVariable.fresh()
           genConstraints(e1, tv) ++ genConstraints(e2, expected)
@@ -190,7 +190,7 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
     // Putting it all together to type-check each module's functions and main expression.
     program.modules.foreach { mod =>
       mod.defs.collect { case FunDef(_, params, retType, body) =>
-        val env = params.map{ case ParamDef(name, tt) => name -> tt.tpe }.toMap
+        val env = params.map{ case ParamDef(name, tt, _) => name -> tt.tpe }.toMap
         solveConstraints(genConstraints(body, retType.tpe)(env))
       }
 
