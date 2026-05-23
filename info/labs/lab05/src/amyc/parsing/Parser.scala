@@ -91,7 +91,7 @@ object Parser extends Pipeline[Iterator[Token], Program]
     }
 
   // A type expression.
-  lazy val typeTree: Syntax[TypeTree] = primitiveType | identifierType | tupleType
+  lazy val typeTree: Syntax[TypeTree] = recursive { primitiveType | identifierType | tupleType }
 
   // A built-in type (such as `Int`).
   val primitiveType: Syntax[TypeTree] = (accept(PrimTypeKind) {
