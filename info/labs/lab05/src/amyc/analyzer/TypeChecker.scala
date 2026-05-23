@@ -57,7 +57,7 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
               case LiteralPattern(lit) =>
                 (genConstraints(lit, expected), Map.empty)
               case CaseClassPattern(constr, args) =>
-                val sig = table.getConstructor(constr).get
+                val sig = table.getDefaultConstructor(constr).get
                 val constrConstraint = Constraint(expected, ClassType(sig.parent), pat.position)
                 val pairs = (args zip sig.argTypes).map { case (argPat, argType) =>
                   patternBindings(argPat, argType)
@@ -116,10 +116,10 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
         case Neg(e) =>
           topLevelConstraint(IntType) ++ genConstraints(e, IntType)
         case Call(qname, args) =>
-          val (argTypes, retType) = table.getFunction(qname) match {
+          val (argTypes, retType) = table.getDefaultFunction(qname) match {
             case Some(sig) => (sig.argTypes, sig.retType)
             case None =>
-              val sig = table.getConstructor(qname).get
+              val sig = table.getDefaultConstructor(qname).get
               (sig.argTypes, sig.retType)
           }
           topLevelConstraint(retType) ++

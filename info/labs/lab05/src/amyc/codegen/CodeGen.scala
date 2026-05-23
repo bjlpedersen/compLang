@@ -129,7 +129,7 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
               (Comment(pat.toString) <:> checkCode, Map.empty)
 
             case CaseClassPattern(constr, args) =>
-              val constrSig = table.getConstructor(constr).get
+              val constrSig = table.getDefaultConstructor(constr).get
               val adtLocal  = lh.getFreshLocal()
 
               // Store the ADT pointer and check its constructor tag.
@@ -179,14 +179,14 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
           cgExpr(body)(locals + (df.name -> localIdx), lh)
 
         case AmyCall(qname, args) =>
-          val sig = table.getFunction(qname)
+          val sig = table.getDefaultFunction(qname)
           if (sig.isDefined) {
             // Function call
             args.map { case (_, e) => cgExpr(e) } <:>
             Call(fullName(sig.get.owner, qname))
           } else {
             // Constructor call
-            val constr = table.getConstructor(qname).get
+            val constr = table.getDefaultConstructor(qname).get
             val oldMem = lh.getFreshLocal()
             val argAssignments = args.zipWithIndex.map { case ((_, arg), i) =>
               GetLocal(oldMem) <:>

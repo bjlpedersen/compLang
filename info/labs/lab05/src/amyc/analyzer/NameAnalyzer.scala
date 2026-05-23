@@ -3,6 +3,9 @@ package analyzer
 
 import amyc.utils._
 import amyc.ast.{Identifier, NominalTreeModule => N, SymbolicTreeModule => S}
+import amyc.parsing.Tokens.IntLitToken
+import amyc.parsing.Tokens.BoolLitToken
+import amyc.parsing.Tokens.StringLitToken
 
 // Name analyzer for Amy
 // Takes a nominal program (names are plain string, qualified names are string pairs)
@@ -65,7 +68,29 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
     } {
       val argTypes = fields map (pd => transformType(pd.tt, m.name))
       val retType = table.getType(m.name, parent).getOrElse(fatal(s"Parent class $parent not found", cc))
-      table.addConstructor(m.name, name, argTypes, retType)
+            val defaultValueOptions = fields.map(
+        param => param.default
+      )
+
+      if (defaultValueOptions.dropWhile(!_.isDefined).exists(!_.isDefined)){
+        for (x <- defaultValueOptions)
+        {
+          x match
+            case Some(value) => println(x.get match
+              case N.IntLiteral(v) => S.IntLiteral(v)        
+              case N.BooleanLiteral(v) => S.BooleanLiteral(v)
+              case N.StringLiteral(v) => S.StringLiteral(v))
+            case None => println("no default value was found for this one")
+        }
+        fatal("argument has no default value")
+      }
+      val defaultValues = defaultValueOptions.flatten.map(defaultVal =>
+        defaultVal match
+          case N.IntLiteral(v) => S.IntLiteral(v)        
+          case N.BooleanLiteral(v) => S.BooleanLiteral(v)
+          case N.StringLiteral(v) => S.StringLiteral(v)
+      )
+      table.addDefaultConstructor(m.name, name, argTypes, retType, defaultValues)
     }
 
     // Step 5: Discover functions signatures.
@@ -75,7 +100,30 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
     } {
       val argTypes = params map (p => transformType(p.tt, m.name))
       val retType2 = transformType(retType1, m.name)
-      table.addFunction(m.name, name, argTypes, retType2)
+      val defaultValueOptions = params.map(
+        param => param.default
+      )
+
+      if (defaultValueOptions.dropWhile(!_.isDefined).exists(!_.isDefined)){
+        for (x <- defaultValueOptions)
+        {
+          x match
+            case Some(value) => println(x.get match
+              case N.IntLiteral(v) => S.IntLiteral(v)        
+              case N.BooleanLiteral(v) => S.BooleanLiteral(v)
+              case N.StringLiteral(v) => S.StringLiteral(v))
+            case None => println("no default value was found for this one")
+        }
+        fatal("argument has no default value")
+      }
+      val defaultValues = defaultValueOptions.flatten.map(defaultVal =>
+        defaultVal match
+          case N.IntLiteral(v) => S.IntLiteral(v)        
+          case N.BooleanLiteral(v) => S.BooleanLiteral(v)
+          case N.StringLiteral(v) => S.StringLiteral(v)
+      )
+
+      table.addDefaultFunction(m.name, name, argTypes, retType2, defaultValues)
     }
 
     // Step 6: We now know all definitions in the program.
@@ -85,7 +133,7 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
       case N.AbstractClassDef(name) =>
         S.AbstractClassDef(table.getType(module, name).get)
       case N.CaseClassDef(name, nomFields, _) =>
-        val Some((sym, sig)): Option[(Identifier, ConstrSig)] = table.getConstructor(module, name) : @unchecked
+        val Some((sym, sig)): Option[(Identifier, ConstrSig)] = table.getDefaultConstructor(module, name) : @unchecked
         val symFields = nomFields.zip(sig.argTypes).map { case (nf, tpe) =>
           S.ParamDef(Identifier.fresh(nf.name), S.TypeTree(tpe).setPos(nf.tt)).setPos(nf)
         }
@@ -96,7 +144,7 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
 
     def transformFunDef(fd: N.FunDef, module: String): S.FunDef = {
       val N.FunDef(name, params, retType, body) = fd
-      val Some((sym, sig)) = table.getFunction(module, name) : @unchecked
+      val Some((sym, sig)) = table.getDefaultFunction(module, name) : @unchecked
 
       params.groupBy(_.name).foreach { case (name, ps) =>
         if (ps.size > 1) {
@@ -105,7 +153,7 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
       }
 
       val paramNames = params.map(_.name)
-
+      // TODO should add here something where I actually use the default parameters. (Kepp this line intact. Just remove the comment)
       val newParams = params zip sig.argTypes map { case (pd@N.ParamDef(name, tt, _), tpe) =>
         val s = Identifier.fresh(name)
         S.ParamDef(s, S.TypeTree(tpe).setPos(tt)).setPos(pd)
@@ -167,14 +215,23 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
         case N.Call(qname, args) =>
           val owner = qname.module.getOrElse(module)
           val name  = qname.name
-          val entry = table.getConstructor(owner, name).orElse(table.getFunction(owner, name))
+          val entry = table.getDefaultConstructor(owner, name).orElse(table.getDefaultFunction(owner, name))
           entry match {
             case None =>
               fatal(s"Function or constructor $qname not found", expr)
             case Some((sym, sig)) =>
-              if (sig.argTypes.size != args.size) {
+              sig match 
+                case DefaultConstrSig(argTypes, parent, index, defaultValues) => 
+                  if (argTypes.size - defaultValues.size > args.size){
+                    fatal(s"Wrong number of arguments for function/constructor $qname", expr)
+                  }
+                case DefaultFunSig(argTypes, retType, owner, defaultValues) =>
+                  if (argTypes.size - defaultValues.size > args.size){
+                    fatal(s"Wrong number of arguments for function/constructor $qname", expr)
+                  }
+              /*if (sig.argTypes.size != args.size) {
                 fatal(s"Wrong number of arguments for function/constructor $qname", expr)
-              }
+              }*/
               S.Call(sym, args map { case (name, e) => (name, transformExpr(e)) })
           }
         case N.Sequence(e1, e2) =>
@@ -213,8 +270,8 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
                 if (params.contains(name)) {
                   warning("Suspicious shadowing by an Id Pattern", pat)
                 }
-                table.getConstructor(module, name) match {
-                  case Some((_, ConstrSig(Nil, _, _))) =>
+                table.getDefaultConstructor(module, name) match {
+                  case Some((_, DefaultConstrSig(Nil, _, _, _))) =>
                     warning(s"There is a nullary constructor in this module called '$name'. Did you mean '$name()'?", pat)
                   case _ =>
                 }
@@ -224,7 +281,7 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
                 (S.LiteralPattern(transformExpr(lit).asInstanceOf[S.Literal[Any]]), List())
               case N.CaseClassPattern(constr, args) =>
                 val (sym, sig) = table
-                  .getConstructor(constr.module.getOrElse(module), constr.name)
+                  .getDefaultConstructor(constr.module.getOrElse(module), constr.name)
                   .getOrElse(fatal(s"Constructor $constr not found", pat))
                 if (sig.argTypes.size != args.size) {
                   fatal(s"Wrong number of args for constructor $constr", pat)

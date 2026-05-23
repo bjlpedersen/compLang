@@ -20,6 +20,9 @@ trait Signature[RT <: Type]{
   */
 case class FunSig(argTypes: List[Type], retType: Type, owner: Identifier) extends Signature[Type]
 
+
+case class DefaultFunSig(argTypes: List[Type], retType: Type, owner: Identifier, defaultValues: List[Expr]) extends Signature[Type]
+
 /**
   * The signature of a constructor in the symbol table
   *
@@ -33,6 +36,11 @@ case class ConstrSig(argTypes: List[Type], parent: Identifier, index: Int) exten
   val retType = ClassType(parent)
 }
 
+case class DefaultConstrSig(argTypes: List[Type], parent: Identifier, index: Int, defaultValues: List[Expr])
+  extends Signature[ClassType] {
+  val retType = ClassType(parent)
+}
+
 // A class that represents a dictionary of symbols for an Amy program
 class SymbolTable {
   private val defsByName = HashMap[(String, String), Identifier]()
@@ -41,6 +49,8 @@ class SymbolTable {
   private val types = HashMap[Identifier, Identifier]()
   private val functions = HashMap[Identifier, FunSig]()
   private val constructors = HashMap[Identifier, ConstrSig]()
+  private val defaultFunctions = HashMap[Identifier, DefaultFunSig]()
+  private val defaultConstructors = HashMap[Identifier, DefaultConstrSig]()
 
   private val typesToConstructors = HashMap[Identifier, List[Identifier]]()
 
@@ -63,7 +73,27 @@ class SymbolTable {
     defsByName.get(owner,name) filter types.contains
   def getType(symbol: Identifier) = types.get(symbol)
 
-  def addConstructor(owner: String, name: String, argTypes: List[Type], parent: Identifier) = {
+  def addDefaultConstructor(owner: String, name: String, argTypes: List[Type], parent: Identifier, 
+  defaultArgs: List[Literal[Any]]) = {
+    val s = Identifier.fresh(name)
+    defsByName += (owner, name) -> s
+    defaultConstructors += s -> DefaultConstrSig(
+      argTypes,
+      parent,
+      constrIndexes.next(parent),
+      defaultArgs
+    )
+    typesToConstructors += parent -> (typesToConstructors.getOrElse(parent, Nil) :+ s)
+    s
+  }
+  def getDefaultConstructor(owner: String, name: String): Option[(Identifier, DefaultConstrSig)] = {
+    for {
+      sym <- defsByName.get(owner, name)
+      sig <- defaultConstructors.get(sym)
+    } yield (sym, sig)
+  }
+  def getDefaultConstructor(symbol: Identifier) = defaultConstructors.get(symbol)
+  /*def addConstructor(owner: String, name: String, argTypes: List[Type], parent: Identifier) = {
     val s = Identifier.fresh(name)
     defsByName += (owner, name) -> s
     constructors += s -> ConstrSig(
@@ -80,22 +110,36 @@ class SymbolTable {
       sig <- constructors.get(sym)
     } yield (sym, sig)
   }
-  def getConstructor(symbol: Identifier) = constructors.get(symbol)
+  def getConstructor(symbol: Identifier) = constructors.get(symbol)*/
 
   def getConstructorsForType(t: Identifier) = typesToConstructors.get(t)
-
+/*
   def addFunction(owner: String, name: String, argTypes: List[Type], retType: Type) = {
     val s = Identifier.fresh(name)
     defsByName += (owner, name) -> s
     functions += s -> FunSig(argTypes, retType, getModule(owner).getOrElse(sys.error(s"Module $owner not found!")))
     s
+  }*/
+  def addDefaultFunction(owner: String, name: String, argTypes: List[Type], retType: Type, defaultArgs: List[Literal[Any]]) =  {
+    val s = Identifier.fresh(name)
+    defsByName += (owner, name) -> s
+    defaultFunctions += s -> DefaultFunSig(argTypes, retType, 
+      getModule(owner).getOrElse(sys.error(s"Module $owner not found!")), defaultArgs)
+    s
   }
-  def getFunction(owner: String, name: String): Option[(Identifier, FunSig)] = {
+  def getDefaultFunction(owner: String, name: String): Option[(Identifier, DefaultFunSig)] = {
+    for {
+      sym <- defsByName.get(owner, name)
+      sig <- defaultFunctions.get(sym)
+    } yield (sym, sig)
+  }
+  def getDefaultFunction(symbol: Identifier) = defaultFunctions.get(symbol)
+  /*def getFunction(owner: String, name: String): Option[(Identifier, FunSig)] = {
     for {
       sym <- defsByName.get(owner, name)
       sig <- functions.get(sym)
     } yield (sym, sig)
   }
   def getFunction(symbol: Identifier) = functions.get(symbol)
-
+*/
 }

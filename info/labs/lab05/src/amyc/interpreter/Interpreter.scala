@@ -53,8 +53,8 @@ object Interpreter extends Pipeline[(Program, SymbolTable), Unit] {
     )
 
     // Utility functions to interface with the symbol table.
-    def isConstructor(name: Identifier) = table.getConstructor(name).isDefined
-    def findFunctionOwner(functionName: Identifier) = table.getFunction(functionName).get.owner.name
+    def isConstructor(name: Identifier) = table.getDefaultConstructor(name).isDefined
+    def findFunctionOwner(functionName: Identifier) = table.getDefaultFunction(functionName).get.owner.name
     def findFunction(owner: String, name: String) = {
       program.modules.find(_.name.name == owner).get.defs.collectFirst {
         case fd@FunDef(fn, _, _, _) if fn.name == name => fd
