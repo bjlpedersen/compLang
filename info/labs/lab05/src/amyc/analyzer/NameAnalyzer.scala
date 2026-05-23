@@ -68,15 +68,15 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
     } {
       val argTypes = fields map (pd => transformType(pd.tt, m.name))
       val retType = table.getType(m.name, parent).getOrElse(fatal(s"Parent class $parent not found", cc))
-            val defaultValueOptions = fields.map(
-        param => param.default
+      val defaultValueOptions = fields.map(
+        param => (param.default, param.name)
       )
 
-      if (defaultValueOptions.dropWhile(!_.isDefined).exists(!_.isDefined)){
+      if (defaultValueOptions.dropWhile(!_._1.isDefined).exists(!_._1.isDefined)){
         for (x <- defaultValueOptions)
         {
-          x match
-            case Some(value) => println(x.get match
+          x._1 match
+            case Some(value) => println(x._1.get match
               case N.IntLiteral(v) => S.IntLiteral(v)        
               case N.BooleanLiteral(v) => S.BooleanLiteral(v)
               case N.StringLiteral(v) => S.StringLiteral(v))
@@ -84,12 +84,15 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
         }
         fatal("argument has no default value")
       }
-      val defaultValues = defaultValueOptions.flatten.map(defaultVal =>
-        defaultVal match
-          case N.IntLiteral(v) => S.IntLiteral(v)        
-          case N.BooleanLiteral(v) => S.BooleanLiteral(v)
-          case N.StringLiteral(v) => S.StringLiteral(v)
-      )
+      val defaultValues = defaultValueOptions.flatMap(value =>
+        value match
+          case (Some(v), s) => 
+            v match
+              case N.IntLiteral(v) => List((S.IntLiteral(v), s))        
+              case N.BooleanLiteral(v) => List((S.BooleanLiteral(v), s))
+              case N.StringLiteral(v) => List((S.StringLiteral(v), s))
+          case (None, _) => Nil
+        )
       table.addDefaultConstructor(m.name, name, argTypes, retType, defaultValues)
     }
 
@@ -101,14 +104,14 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
       val argTypes = params map (p => transformType(p.tt, m.name))
       val retType2 = transformType(retType1, m.name)
       val defaultValueOptions = params.map(
-        param => param.default
+        param => (param.default, param.name)
       )
 
-      if (defaultValueOptions.dropWhile(!_.isDefined).exists(!_.isDefined)){
+      if (defaultValueOptions.dropWhile(!_._1.isDefined).exists(!_._1.isDefined)){
         for (x <- defaultValueOptions)
         {
-          x match
-            case Some(value) => println(x.get match
+          x._1 match
+            case Some(value) => println(x._1.get match
               case N.IntLiteral(v) => S.IntLiteral(v)        
               case N.BooleanLiteral(v) => S.BooleanLiteral(v)
               case N.StringLiteral(v) => S.StringLiteral(v))
@@ -116,12 +119,15 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
         }
         fatal("argument has no default value")
       }
-      val defaultValues = defaultValueOptions.flatten.map(defaultVal =>
-        defaultVal match
-          case N.IntLiteral(v) => S.IntLiteral(v)        
-          case N.BooleanLiteral(v) => S.BooleanLiteral(v)
-          case N.StringLiteral(v) => S.StringLiteral(v)
-      )
+      val defaultValues = defaultValueOptions.flatMap(value =>
+        value match
+          case (Some(v), s) => 
+            v match
+              case N.IntLiteral(v) => List((S.IntLiteral(v), s))        
+              case N.BooleanLiteral(v) => List((S.BooleanLiteral(v), s))
+              case N.StringLiteral(v) => List((S.StringLiteral(v), s))
+          case (None, _) => Nil
+        )
 
       table.addDefaultFunction(m.name, name, argTypes, retType2, defaultValues)
     }

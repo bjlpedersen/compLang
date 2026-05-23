@@ -21,7 +21,7 @@ trait Signature[RT <: Type]{
 case class FunSig(argTypes: List[Type], retType: Type, owner: Identifier) extends Signature[Type]
 
 
-case class DefaultFunSig(argTypes: List[Type], retType: Type, owner: Identifier, defaultValues: List[Expr]) extends Signature[Type]
+case class DefaultFunSig(argTypes: List[Type], retType: Type, owner: Identifier, defaultValues: List[(Expr, String)]) extends Signature[Type]
 
 /**
   * The signature of a constructor in the symbol table
@@ -36,7 +36,7 @@ case class ConstrSig(argTypes: List[Type], parent: Identifier, index: Int) exten
   val retType = ClassType(parent)
 }
 
-case class DefaultConstrSig(argTypes: List[Type], parent: Identifier, index: Int, defaultValues: List[Expr])
+case class DefaultConstrSig(argTypes: List[Type], parent: Identifier, index: Int, defaultValues: List[(Expr, String)])
   extends Signature[ClassType] {
   val retType = ClassType(parent)
 }
@@ -74,7 +74,7 @@ class SymbolTable {
   def getType(symbol: Identifier) = types.get(symbol)
 
   def addDefaultConstructor(owner: String, name: String, argTypes: List[Type], parent: Identifier, 
-  defaultArgs: List[Literal[Any]]) = {
+  defaultArgs: List[(Literal[Any], String)]) = {
     val s = Identifier.fresh(name)
     defsByName += (owner, name) -> s
     defaultConstructors += s -> DefaultConstrSig(
@@ -120,7 +120,7 @@ class SymbolTable {
     functions += s -> FunSig(argTypes, retType, getModule(owner).getOrElse(sys.error(s"Module $owner not found!")))
     s
   }*/
-  def addDefaultFunction(owner: String, name: String, argTypes: List[Type], retType: Type, defaultArgs: List[Literal[Any]]) =  {
+  def addDefaultFunction(owner: String, name: String, argTypes: List[Type], retType: Type, defaultArgs: List[(Literal[Any], String)]) =  {
     val s = Identifier.fresh(name)
     defsByName += (owner, name) -> s
     defaultFunctions += s -> DefaultFunSig(argTypes, retType, 
