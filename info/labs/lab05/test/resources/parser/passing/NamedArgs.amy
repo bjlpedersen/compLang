@@ -1,0 +1,7 @@
+object NamedArgs
+  def add(x: Int(32), y: Int(32)): Int(32) :=
+    x + y
+  end add
+  add(x = 3, y = 4);
+  add(y = 10, x = 2)
+end NamedArgs

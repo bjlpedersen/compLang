@@ -50,13 +50,14 @@ object Main extends MainHelpers {
         if (ctx.printTokens) DisplayTokens
         else Parser.andThen(
           if (ctx.printTrees) treePrinterN("Trees after parsing")
-          else NameAnalyzer.andThen(
-            if (ctx.printNames) treePrinterS("Trees after name analysis")
-            else TypeChecker.andThen(
-              if (ctx.typeCheck) then treePrinterS("Trees after type checking")
-              else (
-                if (ctx.interpret) then Interpreter
-                else CodeGen.andThen(CodePrinter))))))}
+          else TupleDesugarer.andThen(
+            NameAnalyzer.andThen(
+              if (ctx.printNames) treePrinterS("Trees after name analysis")
+              else TypeChecker.andThen(
+                if (ctx.typeCheck) then treePrinterS("Trees after type checking")
+                else (
+                  if (ctx.interpret) then Interpreter
+                  else CodeGen.andThen(CodePrinter)))))))}
 
     val files = ctx.files.map(new File(_))
 

@@ -41,6 +41,7 @@ trait TreeModule { self =>
   case class BooleanLiteral(value: Boolean) extends Literal[Boolean]
   case class StringLiteral(value: String) extends Literal[String]
   case class UnitLiteral() extends Literal[Unit] { val value: Unit = () }
+  case class TupleLiteral(exprs: List[Expr]) extends Expr
 
   // Binary operators
   case class Plus(lhs: Expr, rhs: Expr) extends Expr
@@ -87,6 +88,7 @@ trait TreeModule { self =>
   case class IdPattern(name: Name) extends Pattern // x
   case class LiteralPattern[+T](lit: Literal[T]) extends Pattern // 42, true
   case class CaseClassPattern(constr: QualifiedName, args: List[Pattern]) extends Pattern // C(arg1, arg2)
+  case class TuplePattern(patterns: List[Pattern]) extends Pattern // (pat1, pat2)
 
   // Definitions
   trait Definition extends Tree { val name: Name }
@@ -117,6 +119,9 @@ trait TreeModule { self =>
   }
   case class ClassType(qname: QualifiedName) extends Type {
     override def toString: String = printer.printQName(qname)(false).print
+  }
+  case class TupleType(tpes: List[TypeTree]) extends Type {
+    override def toString: String = tpes.mkString("(", ", ", ")")
   }
 
   // A wrapper for types that is also a Tree (i.e. has a position)

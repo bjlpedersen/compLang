@@ -75,14 +75,23 @@ object Parser extends Pipeline[Iterator[Token], Program]
       case (name, pos) ~ _ ~ tpe => ParamDef(name, tpe).setPos(pos)
     }
 
-  // New rule — used for function and case class parameters only
   lazy val paramWithDefault: Syntax[ParamDef] =
     (identifierPos ~ ":" ~ typeTree ~ opt("=" ~>~ expr)).map {
       case (name, pos) ~ _ ~ tpe ~ default => ParamDef(name, tpe, default).setPos(pos)
   }
 
+  lazy val tupleType: Syntax[TypeTree] = 
+    ("(" ~ repsep(typeTree, ",") ~ ")").map {
+      case lp ~ types ~ _ => 
+        types.toList match {
+          case Nil => TypeTree(UnitType).setPos(lp)
+          case t :: Nil => t 
+          case tpes => TypeTree(TupleType(tpes)).setPos(lp)
+        }
+    }
+
   // A type expression.
-  lazy val typeTree: Syntax[TypeTree] = primitiveType | identifierType
+  lazy val typeTree: Syntax[TypeTree] = recursive { primitiveType | identifierType | tupleType }
 
   // A built-in type (such as `Int`).
   val primitiveType: Syntax[TypeTree] = (accept(PrimTypeKind) {
@@ -198,7 +207,7 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
   // A pattern as part of a mach case.
   lazy val pattern: Syntax[Pattern] = recursive { 
-    literalPattern | wildPattern | caseClassPatternAndID | unitPattern
+    literalPattern | wildPattern | caseClassPatternAndID | parenOrTuplePattern
   }
 
 
@@ -208,8 +217,13 @@ object Parser extends Pipeline[Iterator[Token], Program]
     case BoolLitToken(value) => LiteralPattern(BooleanLiteral(value))
   }
 
-  lazy val unitPattern: Syntax[Pattern] = ("(" ~ ")").map{
-    case t1 ~ t2 => LiteralPattern(UnitLiteral())
+  lazy val parenOrTuplePattern: Syntax[Pattern] = ("(" ~ repsep(pattern, ",") ~ ")").map {
+    case lp ~ pats ~ _ =>
+      pats.toList match {
+        case Nil => LiteralPattern(UnitLiteral()).setPos(lp)
+        case p :: Nil => p
+        case ps => TuplePattern(ps).setPos(lp)
+      }
   }
 
   lazy val wildPattern: Syntax[Pattern] = accept(KeywordKind("_")){
@@ -230,10 +244,14 @@ object Parser extends Pipeline[Iterator[Token], Program]
 
   // HINT: It is useful to have a restricted set of expressions that don't include any more operators on the outer level.
 
-  lazy val parenOrUnitExpr: Syntax[Expr] =
-  ("(" ~ opt(expr) ~ ")").map {
-    case lp ~ None ~ _    => UnitLiteral().setPos(lp)
-    case _  ~ Some(e) ~ _ => e
+  lazy val parenOrTupleOrUnitExpr: Syntax[Expr] =
+  ("(" ~ repsep(expr, ",") ~ ")").map {
+    case lp ~ exprs ~ _ =>
+      exprs.toList match {
+        case Nil => UnitLiteral().setPos(lp)
+        case e :: Nil => e
+        case es => TupleLiteral(es).setPos(lp)
+      }
   }
 
 
@@ -242,7 +260,7 @@ object Parser extends Pipeline[Iterator[Token], Program]
     (kw("error") ~ "(" ~ expr ~ ")").map {
       case err ~ _ ~ msg ~ _ => Error(msg).setPos(err)
     } |
-    parenOrUnitExpr
+    parenOrTupleOrUnitExpr
 
   // Arguments list: parses exprs separated by commas, converting NamedArg nodes to named pairs
   lazy val arguments: Syntax[List[(Option[String], Expr)]] =
