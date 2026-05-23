@@ -20,8 +20,7 @@ trait Signature[RT <: Type]{
   */
 case class FunSig(argTypes: List[Type], retType: Type, owner: Identifier) extends Signature[Type]
 
-
-case class DefaultFunSig(argTypes: List[Type], retType: Type, owner: Identifier, defaultValues: List[(Expr, String)]) extends Signature[Type]
+case class DefaultFunSig(argTypes: List[Type], retType: Type, owner: Identifier, defaultValues: List[(Expr, String)]) extends Signature[Type] 
 
 /**
   * The signature of a constructor in the symbol table

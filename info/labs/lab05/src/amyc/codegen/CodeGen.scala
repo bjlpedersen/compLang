@@ -180,15 +180,22 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
 
         case AmyCall(qname, args) =>
           val sig = table.getDefaultFunction(qname)
+          val argsSet = args.collect{case (Some(s), _) => s}.toSet
           if (sig.isDefined) {
             // Function call
-            args.map { case (_, e) => cgExpr(e) } <:>
+            val defaults = sig.get.defaultValues.filter((_, s) => !argsSet.contains(s)).map((e, s) => (s, e))
+            val finalArgs = args++defaults
+            
+            finalArgs.map { case (_, e) => cgExpr(e) } <:>
             Call(fullName(sig.get.owner, qname))
           } else {
             // Constructor call
             val constr = table.getDefaultConstructor(qname).get
             val oldMem = lh.getFreshLocal()
-            val argAssignments = args.zipWithIndex.map { case ((_, arg), i) =>
+            val defaults = constr.defaultValues.filter((_, s) => !argsSet.contains(s)).map((e, s) => (s, e))
+            val finalArgs = args++defaults
+
+            val argAssignments = finalArgs.zipWithIndex.map { case ((_, arg), i) =>
               GetLocal(oldMem) <:>
               Const((i + 1) * 4) <:>
               Add <:>
@@ -199,7 +206,7 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
             GetGlobal(memoryBoundary) <:>
             SetLocal(oldMem) <:>
             GetGlobal(memoryBoundary) <:>
-            Const((args.size + 1) * 4) <:>
+            Const((finalArgs.size + 1) * 4) <:>
             Add <:>
             SetGlobal(memoryBoundary) <:>
             GetLocal(oldMem) <:>
