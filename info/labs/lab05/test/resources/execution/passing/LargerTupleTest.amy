@@ -1,0 +1,7 @@
+object LargerTupleTest
+  val t: (Int(32), Int(32), Int(32), Int(32)) = (1, 2, 3, 4);
+  t match {
+    case (a, b, c, d) =>
+      Std.printInt(a + b + c + d)
+  }
+end LargerTupleTest

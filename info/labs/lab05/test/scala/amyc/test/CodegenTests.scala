@@ -41,6 +41,7 @@ class CodegenTests extends ExecutionTests {
   val pipeline =
     AmyLexer
     .andThen(Parser)
+    .andThen(amyc.analyzer.TupleDesugarer)
     .andThen(NameAnalyzer)
     .andThen(TypeChecker)
     .andThen(CodeGen)

@@ -1,0 +1,9 @@
+object MixedTupleTest
+  val t: (Int(32), Boolean) = (1, true);
+  t match {
+    case (i, b) =>
+      Std.printInt(i);
+      Std.printString(" ");
+      Std.printBoolean(b)
+  }
+end MixedTupleTest

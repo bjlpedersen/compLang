@@ -139,7 +139,7 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
       case N.AbstractClassDef(name) =>
         S.AbstractClassDef(table.getType(module, name).get)
       case N.CaseClassDef(name, nomFields, _) =>
-        val Some((sym, sig)): Option[(Identifier, ConstrSig)] = table.getDefaultConstructor(module, name) : @unchecked
+        val Some((sym, sig)): Option[(Identifier, DefaultConstrSig)] = table.getDefaultConstructor(module, name) : @unchecked
         val symFields = nomFields.zip(sig.argTypes).map { case (nf, tpe) =>
           S.ParamDef(Identifier.fresh(nf.name), S.TypeTree(tpe).setPos(nf.tt)).setPos(nf)
         }

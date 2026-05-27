@@ -1,0 +1,7 @@
+object NestedTupleTest
+  val t: (Int(32), Tuple) = (1, (2, 3));
+  t match {
+    case (a, (b, c)) =>
+      Std.printInt(a)
+  }
+end NestedTupleTest

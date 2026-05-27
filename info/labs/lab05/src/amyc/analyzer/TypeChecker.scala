@@ -59,8 +59,10 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
               case CaseClassPattern(constr, args) =>
                 val sig = table.getDefaultConstructor(constr).get
                 val constrConstraint = Constraint(expected, ClassType(sig.parent), pat.position)
-                val pairs = (args zip sig.argTypes).map { case (argPat, argType) =>
-                  patternBindings(argPat, argType)
+                val pairs = if (sig.parent.name == "Tuple") {
+                  (args zip args.map(_ => expected)).map { case (argPat, _) => patternBindings(argPat, TypeVariable.fresh()) }
+                } else {
+                  (args zip sig.argTypes).map { case (argPat, argType) => patternBindings(argPat, argType) }
                 }
                 var constraints = List(constrConstraint)
                 var bindings = Map[Identifier, Type]()
@@ -116,14 +118,19 @@ object TypeChecker extends Pipeline[(Program, SymbolTable), (Program, SymbolTabl
         case Neg(e) =>
           topLevelConstraint(IntType) ++ genConstraints(e, IntType)
         case Call(qname, args) =>
-          val (argTypes, retType) = table.getDefaultFunction(qname) match {
-            case Some(sig) => (sig.argTypes, sig.retType)
+          val (argTypes, retType, isTuple) = table.getDefaultFunction(qname) match {
+            case Some(sig) => (sig.argTypes, sig.retType, false)
             case None =>
               val sig = table.getDefaultConstructor(qname).get
-              (sig.argTypes, sig.retType)
+              (sig.argTypes, sig.retType, sig.parent.name == "Tuple")
           }
-          topLevelConstraint(retType) ++
-            (args zip argTypes).flatMap { case ((_, arg), argType) => genConstraints(arg, argType) }
+          if (isTuple) {
+            topLevelConstraint(retType) ++
+              args.flatMap { case (_, arg) => genConstraints(arg, TypeVariable.fresh()) }
+          } else {
+            topLevelConstraint(retType) ++
+              (args zip argTypes).flatMap { case ((_, arg), argType) => genConstraints(arg, argType) }
+          }
         case Sequence(e1, e2) =>
           val tv = TypeVariable.fresh()
           genConstraints(e1, tv) ++ genConstraints(e2, expected)

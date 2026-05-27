@@ -61,4 +61,10 @@ abstract class ExecutionTests extends TestSuite {
   @Test def testLocals2 = shouldFail("Locals")
 
   @Test def testFunCallEnv = shouldOutput(List("FunCallEnv", "Std"), "FunCallEnv")
+
+  @Test def testTupleTest = shouldOutput(List("Std", "Tuple", "TupleTest"), "TupleTest")
+
+  @Test def testLargerTupleTest = shouldOutput(List("Std", "Tuple", "LargerTupleTest"), "LargerTupleTest")
+  @Test def testMixedTupleTest = shouldOutput(List("Std", "Tuple", "MixedTupleTest"), "MixedTupleTest")
+  @Test def testNestedTupleTest = shouldOutput(List("Std", "Tuple", "NestedTupleTest"), "NestedTupleTest")
 }

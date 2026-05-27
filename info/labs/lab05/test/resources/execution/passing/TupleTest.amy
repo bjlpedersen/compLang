@@ -1,0 +1,7 @@
+object TupleTest
+  val t: (Int(32), Int(32)) = (1, 2);
+  t match {
+    case (x, y) =>
+      Std.printInt(x + y)
+  }
+end TupleTest

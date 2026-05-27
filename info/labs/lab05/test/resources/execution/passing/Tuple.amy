@@ -1,0 +1,13 @@
+object T 
+  abstract class Tuple
+  case class Tuple2(v1: Int(32), v2: Int(32)) extends Tuple
+  case class Tuple3(v1: Int(32), v2: Int(32), v3: Int(32)) extends Tuple
+  case class Tuple4(v1: Int(32), v2: Int(32), v3: Int(32), v4: Int(32)) extends Tuple
+  case class Tuple5(v1: Int(32), v2: Int(32), v3: Int(32), v4: Int(32), v5: Int(32)) extends Tuple
+  case class Tuple6(v1: Int(32), v2: Int(32), v3: Int(32), v4: Int(32), v5: Int(32), v6: Int(32)) extends Tuple
+  case class Tuple7(v1: Int(32), v2: Int(32), v3: Int(32), v4: Int(32), v5: Int(32), v6: Int(32), v7: Int(32)) extends Tuple
+  case class Tuple8(v1: Int(32), v2: Int(32), v3: Int(32), v4: Int(32), v5: Int(32), v6: Int(32), v7: Int(32), v8: Int(32)) extends Tuple
+  case class Tuple9(v1: Int(32), v2: Int(32), v3: Int(32), v4: Int(32), v5: Int(32), v6: Int(32), v7: Int(32), v8: Int(32), v9: Int(32)) extends Tuple
+  case class Tuple10(v1: Int(32), v2: Int(32), v3: Int(32), v4: Int(32), v5: Int(32), v6: Int(32), v7: Int(32), v8: Int(32), v9: Int(32), v10: Int(32)) extends Tuple
+    
+end T

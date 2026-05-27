@@ -17,7 +17,7 @@ object TupleDesugarer extends Pipeline[Program, Program] {
         case TupleLiteral(exprs) =>
           val transformedExprs = exprs.map(transformExpr)
           val args = transformedExprs.map(e => (None, e))
-          Call(QualifiedName(None, "Tuple" + exprs.length), args)
+          Call(QualifiedName(Some("T"), "Tuple" + exprs.length), args)
 
         case Let(df, value, body) =>
           Let(transformParamDef(df), transformExpr(value), transformExpr(body))
@@ -59,7 +59,7 @@ object TupleDesugarer extends Pipeline[Program, Program] {
     def transformPattern(pat: Pattern): Pattern = {
       val res = pat match {
         case TuplePattern(patterns) =>
-          CaseClassPattern(QualifiedName(None, "Tuple" + patterns.length), patterns.map(transformPattern))
+          CaseClassPattern(QualifiedName(Some("T"), "Tuple" + patterns.length), patterns.map(transformPattern))
         
         case CaseClassPattern(constr, args) =>
           CaseClassPattern(constr, args.map(transformPattern))
@@ -72,7 +72,7 @@ object TupleDesugarer extends Pipeline[Program, Program] {
     def transformType(tt: TypeTree): TypeTree = {
       val res = tt.tpe match {
         case TupleType(tpes) =>
-          TypeTree(ClassType(QualifiedName(None, "Tuple" + tpes.length)))
+          TypeTree(ClassType(QualifiedName(Some("T"), "Tuple")))
         case _ => tt
       }
       res.setPos(tt)
