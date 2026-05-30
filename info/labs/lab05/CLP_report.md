@@ -11,6 +11,10 @@ We extended the Amy programming language with new, high level features with the 
 
 ## Introduction
 
+Lab 2 consists of the Lexer. It takes the simple text input and transforms it into tokens that we can then use in the the rest of the compilation. The lexing is done in a greedy fashion, where we take the longest possible string of characters to turn it into a token. 
+
+Lab 3 is the parser, consisting of several parsing rules. These rules take the lexer tokens as input, and have to be structured in such a way as to create an LL(1) grammar that will turn the tokens into Any syntax that can then be type checked and further compiled into Web Assembly at the end of the pipeline
+
 Lab 4 consists of several pipeline stages that process an Amy source program:
 - Name analysis (provided) replaces every name string in the AST with a unique identifier, and rejects programs that use undefined or duplicate names.
 - The type checker walks the AST and collects constraints — each constraint says two types must be equal. It then checks whether all constraints are consistent; if not, it reports a type error.
@@ -295,6 +299,28 @@ The solution was to ensure `=` appears in exactly one place in the grammar — a
 ### The Role of `NamedArg`
 
 A consequence of using the general `expr` rule inside the argument list is that the parser has no way to directly produce a `(Option[String], Expr)` pair — it can only produce `Expr` nodes. This is why `NamedArg` was introduced as a temporary `Expr` node. When `namedOrExpr` detects `x = 5`, it wraps the result in `NamedArg("x", 5)`. The `arguments` rule immediately converts it to `(Some("x"), 5)` before storing it in the `Call` node. This design keeps the `expr` rule general and reusable while still allowing named argument information to flow through the tree.
+
+### Changes to Function and Constructore signatures in SymbolTable.scala
+
+In order to have functions and constructors work with default values, we had to change their signatures. This was done by adding a new `List[(Expr, String)]` to the signatures, and replacing the function and constructor hashmaps with the new signatures containing the default values. Finally, getFunction and getConstructor were edited to return the new signatures, and addFunction and addConstructor were changed such that when they are called by the name analyser they expect the default values list as one of their arguments
+
+### changes to the NameAnalyser
+
+steps 1-3 of the name analyser did not require any work.
+
+In step 4, the default values given through the new optional argument for ParamDef, as well as their names, are saved into a new list. That list is also checked to make sure that the default arguments are well ordered and no default arguments come before non default ones in the function definition. Finally, the list is flattened to remove any arguments that do not have a default value, and the values are then mapped to their respective symbolic tree literal values. At this point, the name analyzer also checks that the default parameters are in fact literals. 
+
+The same process is then done in step 5 where we discover the function signatures
+
+Finally, in step 6, the part where the name analyzer enforces that a function or constructor call should receive the exact number of arguments as it was declared with is changed to allow for a range of arguments to be passed. specifically, if the number of arguments in the function or constructor - the number of default arguments is greater than the number of given arguments, then we know that not enough arguments have been given, and the call is rejected
+
+### changes to codeGen for default arguments
+
+The changes to functions and constructors in codeGen were the same. 
+
+At this point in the pipeline, we have access to the list of passed arguments, and the list of default arguments. The first step is to remove the arguments that were passed named. For that the names were turned into a set for easy lookup, and then the default arguments are travered, and the ones that are in the named argument set are dropped.
+
+Finally, the number of unnamed arguments is counted, and the first n default values are also droped, their values being overritten by the passed arguments. the two lists are then joined and code is generated for the arguments.
 
 ### Tuple Desugarer Phase
 
