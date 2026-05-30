@@ -181,9 +181,11 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
         case AmyCall(qname, args) =>
           val sig = table.getDefaultFunction(qname)
           val argsSet = args.collect{case (Some(s), _) => s}.toSet
+          val unnamedArgsNumber = args.collect{case (None, e) => e}.length
           if (sig.isDefined) {
             // Function call
             val defaults = sig.get.defaultValues.filter((_, s) => !argsSet.contains(s)).map((e, s) => (s, e))
+              .drop(unnamedArgsNumber)
             val finalArgs = args++defaults
             
             finalArgs.map { case (_, e) => cgExpr(e) } <:>
@@ -193,6 +195,7 @@ object CodeGen extends Pipeline[(Program, SymbolTable), Module] {
             val constr = table.getDefaultConstructor(qname).get
             val oldMem = lh.getFreshLocal()
             val defaults = constr.defaultValues.filter((_, s) => !argsSet.contains(s)).map((e, s) => (s, e))
+              .drop(unnamedArgsNumber)
             val finalArgs = args++defaults
 
             val argAssignments = finalArgs.zipWithIndex.map { case ((_, arg), i) =>
