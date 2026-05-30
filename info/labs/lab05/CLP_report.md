@@ -1,0 +1,253 @@
+## Introduction
+
+Lab 4 consists of several pipeline stages that process an Amy source program:
+- Name analysis (provided) replaces every name string in the AST with a unique identifier, and rejects programs that use undefined or duplicate names.
+- The type checker walks the AST and collects constraints — each constraint says two types must be equal. It then checks whether all constraints are consistent; if not, it reports a type error.
+- Because Amy has no generic or higher-order types, all constraints are between simple types, which keeps the algorithm straightforward.
+
+## Architecture
+
+The compiler pipeline is: Lexer → Parser → NameAnalyzer → TypeChecker → Codegen/Interpreter
+
+The type checker is the last frontend phase. Any program that passes it is considered correct and can be compiled or interpreted.
+
+## Examples and Use of the Extension
+
+This extension adds two new features to Amy: default parameter values and named arguments at call sites. These features work together and are most powerful when combined.
+
+### Basic Default Parameters
+
+A function can now declare parameters with default values:
+
+```scala
+object Greetings
+  def greet(name: String, greeting: String = "Hello"): String :=
+    greeting ++ ", " ++ name
+  end greet
+
+  greet("Alice", "Hi");        // "Hi, Alice"
+  greet("Alice")               // error: not yet supported by name analyzer
+end Greetings
+```
+
+The default value is specified after the type with `=`. Parameters without defaults must come before parameters with defaults.
+
+### Basic Named Arguments
+
+Named arguments allow the caller to specify which parameter each value corresponds to:
+
+```scala
+object Math
+  def add(x: Int(32), y: Int(32)): Int(32) :=
+    x + y
+  end add
+
+  add(x = 3, y = 5);    // same as add(3, 5)
+  add(y = 5, x = 3)     // same as add(3, 5), order doesn't matter
+end Math
+```
+
+### Combining Both Features
+
+The most powerful use case is combining default parameters with named arguments. This allows callers to skip specific parameters that have defaults:
+
+```scala
+object UserSettings
+  def createUser(
+    name: String,
+    isAdmin: Boolean = false,
+    age: Int(32) = 18
+  ): String :=
+    name
+  end createUser
+
+  createUser(name = "Alice");                      // skip isAdmin and age
+  createUser(name = "Bob", isAdmin = true);        // skip only age
+  createUser(name = "Charlie", age = 25)           // skip only isAdmin
+end UserSettings
+```
+
+Without this extension, every call would require all three arguments in the correct order, even when most have obvious common values.
+
+### Corner Cases
+
+**Default values must be literals.** The name analyzer currently only resolves literal defaults (`0`, `true`, `"hello"`). An expression like `x + 1` as a default is parsed correctly by the parser but not yet handled by the name analyzer.
+
+**Parameters with defaults must come last.** The name analyzer enforces that all parameters without defaults appear before parameters with defaults:
+
+```scala
+def foo(x: Int(32) = 0, y: Int(32)): Int(32) := ...  // rejected
+def foo(x: Int(32), y: Int(32) = 0): Int(32) := ...  // accepted
+```
+
+**Named arguments must have an identifier on the left side.** The parser rejects invalid named argument syntax:
+
+```scala
+foo(1 + 2 = 5)   // error: named argument must have an identifier on the left side
+```
+
+**`NamedArg` outside a call is rejected.** If `x = 5` appears outside a function call context, the name analyzer rejects it as invalid.
+
+### How to Use the Compiler
+
+The compiler is invoked the same way as before — no new command-line options are needed. Simply write Amy source files using the new syntax and run:
+
+```
+sbt "runMain amyc.Main yourfile.amy"
+```
+
+The parser will accept the new syntax and pass the information through the pipeline to the name analyzer and type checker.
+
+## Background
+
+### LL(1) Parsing
+
+A parser reads a stream of tokens produced by the lexer and builds an Abstract Syntax Tree. An LL(1) parser reads the input from **L**eft to right, produces a **L**eftmost derivation, and uses exactly **1** token of lookahead to decide which grammar rule to apply at each step. This means the parser never backtracks — at every point, looking at the next token is enough to make an unambiguous decision.
+
+To verify this property, two sets are computed for every grammar rule. The **FIRST set** contains all tokens that can begin a string derived from that rule. The **FOLLOW set** contains all tokens that can legally appear immediately after that rule in any context. A grammar is LL(1) if, for every rule with multiple alternatives, their FIRST sets are disjoint, and if a rule can derive the empty string, its FIRST set and FOLLOW set are also disjoint.
+
+### Scallion
+
+Scallion is an LL(1) parser combinator library for Scala developed at EPFL. Instead of writing a parser by hand, grammar rules are built by combining smaller rules using operators — `~` for sequence, `|` for choice, `opt` for optional. Scallion automatically computes FIRST and FOLLOW sets for the entire grammar and verifies the LL(1) property. FOLLOW sets are computed globally across all shared rule references, which has important consequences described in the Implementation section.
+
+## Implementation
+
+The implementation of default parameter values and named arguments required changes to two parts of the compiler: the **AST** and the **parser**.
+
+### AST Changes
+
+The AST is defined in `TreeModule.scala` and describes the data structures that represent an Amy program after parsing. Three changes were made.
+
+**`ParamDef` — optional default value**
+
+`ParamDef` was extended with an optional default value:
+
+```scala
+case class ParamDef(name: Name, tt: TypeTree, default: Option[Expr] = None)
+```
+
+The third field `default` is `None` when no default is provided and `Some(expr)` when one is. This applies to both function parameters and case class fields, since both use `ParamDef`.
+
+**`Call` — named argument pairs**
+
+`Call` arguments changed from a plain list of expressions to a list of name-expression pairs:
+
+```scala
+case class Call(qname: QualifiedName, args: List[(Option[String], Expr)])
+```
+
+Each argument is now a pair. `None` means the argument is positional. `Some("x")` means the argument was given by name. This design keeps all the information needed for the name analyzer to later reorder arguments and fill in defaults.
+
+**`NamedArg` — temporary parsing node**
+
+`NamedArg` is a temporary AST node introduced for parsing purposes:
+
+```scala
+case class NamedArg(argName: String, value: Expr) extends Expr
+```
+
+It exists only during parsing and is immediately converted to a `(Some("x"), expr)` pair before being stored in a `Call` node. The reason it is needed is explained in the parser section below.
+
+Since `CaseClassDef` fields changed from `List[TypeTree]` to `List[ParamDef]`, compatibility fixes were also applied to `NameAnalyzer`, `TypeChecker`, `Printer`, and `CodeGen` to update all pattern matches that destructure these types.
+
+### Parser Changes
+
+The parser is implemented using **Scallion**, an LL(1) parser combinator library. In Scallion, grammar rules are built by combining smaller rules using operators — `~` for sequence, `|` for choice, `opt` for optional — and the library automatically verifies that the resulting grammar is LL(1) by computing FIRST and FOLLOW sets for every rule.
+
+LL(1) means the parser can look at exactly one token ahead to decide what to do. No backtracking is allowed.
+
+**`paramWithDefault`**
+
+Handles default values in function and case class definitions:
+
+```scala
+lazy val paramWithDefault: Syntax[ParamDef] =
+  (identifierPos ~ ":" ~ typeTree ~ opt("=" ~>~ expr)).map {
+    case (name, pos) ~ _ ~ tpe ~ default => ParamDef(name, tpe, default).setPos(pos)
+  }
+```
+
+After parsing the parameter name and type, it optionally looks for `=` followed by an expression. The `~>~` operator discards the `=` token and keeps only the expression. The result is `Some(expr)` if a default was provided, `None` otherwise. The `parameters` rule uses `paramWithDefault` so both function definitions and case class constructors automatically support defaults.
+
+**Named argument parsing — the non-trivial part**
+
+The challenge was that when the parser sees an identifier like `x`, it does not know yet whether it is a variable reference or a named argument. It needs to see the next token — if it is `=`, it is a named argument. This is still only one token of lookahead, so it is theoretically LL(1). However, adding `=` to the grammar in the wrong place caused Scallion to report 17 LL(1) conflicts.
+
+The reason is that Scallion computes FOLLOW sets globally through shared `lazy val` references. The initial approach placed `opt("=" ~>~ expr)` inside `variableOrCall`. Both `variableOrCall` and the new `namedOrExpr` rule referenced the same shared `lazy val ifOrBinOpExpr`. Scallion merged their FOLLOW sets, adding `=` to the global FOLLOW set of `ifOrBinOpExpr`. This propagated down through the entire `operators` framework — every operator level (`*`, `/`, `==`, etc.) inherited `=` in its FOLLOW set, causing conflicts across all of them.
+
+The solution was to make `=` live in exactly one dedicated rule:
+
+```scala
+lazy val namedOrExpr: Syntax[Expr] =
+  (ifOrBinOpExpr ~ opt("=" ~>~ ifOrBinOpExpr)).map {
+    case e ~ None => e
+    case Variable(name) ~ Some(rhs) => NamedArg(name, rhs).setPos(rhs)
+    case _ ~ Some(_) => throw new AmycFatalError(
+      "Named argument must have an identifier on the left side of '='"
+    )
+  }
+```
+
+`namedOrExpr` sits on top of `ifOrBinOpExpr` in the expression hierarchy. After parsing any expression, if the next token is `=`, it produces a `NamedArg` node. If the left side was not a plain variable, it throws an error. If no `=` is found, it returns the expression unchanged. Since `=` now appears in only one place, there is no merging of FOLLOW sets and no cascade of conflicts.
+
+**Why `NamedArg` is needed**
+
+The parser uses the same `expr` rule everywhere. When parsing `foo(x = 5)`, the `expr` rule is called for each argument without any knowledge of being inside a function call. It must return an `Expr`. Since `(Some("x"), 5)` is a pair and not an `Expr`, the parser cannot produce it directly. Instead it produces `NamedArg("x", 5)` as a placeholder. The `arguments` rule then converts it:
+
+```scala
+lazy val arguments: Syntax[List[(Option[String], Expr)]] =
+  ("(" ~>~ repsep(expr, ",").map(_.toList) ~<~ ")").map { args =>
+    args.map {
+      case NamedArg(name, value) => (Some(name), value)
+      case e                     => (None, e)
+    }
+  }
+```
+
+`NamedArg` nodes become `(Some("x"), expr)` pairs and regular expressions become `(None, expr)` pairs. After this conversion, `NamedArg` never appears in the tree again.
+
+**`variableOrCall`** was simplified by removing `opt("=" ~>~ expr)`, since named argument detection is now exclusively handled by `namedOrExpr`:
+
+```scala
+lazy val variableOrCall: Syntax[Expr] =
+  (identifierPos ~ opt("." ~>~ identifier) ~ opt(arguments)).map {
+    case (name, pos) ~ None ~ None               => Variable(name).setPos(pos)
+    case (name, pos) ~ None ~ Some(args)         => Call(QualifiedName(None, name), args).setPos(pos)
+    case (module, pos) ~ Some(name) ~ Some(args) => Call(QualifiedName(Some(module), name), args).setPos(pos)
+    case (module, pos) ~ Some(name) ~ None       =>
+      throw new AmycFatalError("Invalid qualified name without arguments")
+  }
+```
+
+## Implementation Details
+
+### The LL(1) Conflict with Named Arguments
+
+The most non-trivial part of the implementation was adding named argument parsing without breaking the LL(1) property of the grammar.
+
+The challenge comes from the fact that when the parser sees an identifier like `x`, it cannot yet determine whether it is a simple variable reference or the left side of a named argument `x = 5`. It needs to look at the next token — if it is `=`, it is a named argument, otherwise it is a variable. This is still one token of lookahead, so it should theoretically be compatible with LL(1).
+
+The first attempt was to add `opt("=" ~>~ expr)` inside `variableOrCall`, which is the rule that handles identifiers. This immediately produced 17 LL(1) conflicts — not only on `=` but on completely unrelated operators like `*`, `/`, and `==`. The root cause was subtle: Scallion computes FOLLOW sets globally through shared `lazy val` references. Both `variableOrCall` and the new wrapper rule referenced the same shared `lazy val ifOrBinOpExpr`. Scallion merged their FOLLOW sets, adding `=` to the global FOLLOW set of `ifOrBinOpExpr`. This then propagated down through the entire `operators` framework, causing every operator level to inherit `=` in its FOLLOW set and report a conflict.
+
+The solution was to ensure `=` appears in exactly one place in the grammar — a dedicated rule called `namedOrExpr` that sits directly on top of `ifOrBinOpExpr` in the expression hierarchy. With a single reference, there is no merging of FOLLOW sets and no cascade. The rule parses any expression, then optionally looks for `=`. If found and the left side is a plain variable, it produces a `NamedArg` node. If the left side is not a variable, it throws an error. If no `=` is found, it returns the expression unchanged.
+
+### The Role of `NamedArg`
+
+A consequence of using the general `expr` rule inside the argument list is that the parser has no way to directly produce a `(Option[String], Expr)` pair — it can only produce `Expr` nodes. This is why `NamedArg` was introduced as a temporary `Expr` node. When `namedOrExpr` detects `x = 5`, it wraps the result in `NamedArg("x", 5)`. The `arguments` rule immediately converts it to `(Some("x"), 5)` before storing it in the `Call` node. This design keeps the `expr` rule general and reusable while still allowing named argument information to flow through the tree.
+
+## Possible Extensions
+
+### What Remains
+
+The parser and AST are complete — all the information needed for default parameters and named arguments is correctly parsed and stored. What remains is on the semantic side:
+
+- **Named argument reordering**: when a caller writes `foo(y = 5, x = 3)`, the name analyzer should match each argument to its correct parameter position by name. This is not yet implemented.
+- **Filling in default values**: when a caller omits a parameter that has a default, the compiler should automatically insert the default value. Neither the name analyzer nor the type checker currently does this.
+
+### Further Extensions
+
+**Expression defaults.** Currently the name analyzer only handles literal default values such as `0`, `true`, or `"hello"`. The parser already supports any expression as a default — `def foo(x: Int(32), y: Int(32) = x + 1)` parses correctly. Supporting this fully would require the name analyzer to resolve the default expression in the scope of the function definition, which is more complex since it may reference other parameters.
+
+**Keyword-only arguments.** Some languages like Python allow marking certain parameters as keyword-only — meaning they can only be passed by name, never positionally. This would require new syntax in function definitions and new checks in the name analyzer to enforce the restriction at call sites.
+
+**Named arguments for constructors in pattern matching.** Currently named arguments work at call sites for functions and constructors. A natural extension would be to also support named fields in pattern matching — for example `case Cons(head = h, tail = t)` — which would require changes to the pattern grammar and the pattern matching logic in the name analyzer.
