@@ -23,7 +23,7 @@ Lab 5 completes the backend compilation, targeting WebAssembly:
 The problem our extension solves:
 - Amy's function calls and return types are overly rigid.
 - To fix this, we added default arguments, named parameters, and natively supported Tuples.
-- Tuples eliminate the need to create disposable, single-use classes just to return multiple values from functions.
+- Tuples make it so we no longer have to create disposable, single-use classes to return more than one value from a function
 
 ## Architecture
 
