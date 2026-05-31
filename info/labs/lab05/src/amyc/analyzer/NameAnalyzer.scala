@@ -212,11 +212,11 @@ object NameAnalyzer extends Pipeline[N.Program, (S.Program, SymbolTable)] {
             case Some((sym, sig)) =>
               sig match 
                 case DefaultConstrSig(argTypes, parent, index, defaultValues) => 
-                  if (argTypes.size - defaultValues.size > args.size){
+                  if (argTypes.size - defaultValues.size > args.size || args.size > argTypes.size){
                     fatal(s"Wrong number of arguments for function/constructor $qname", expr)
                   }
                 case DefaultFunSig(argTypes, retType, owner, defaultValues) =>
-                  if (argTypes.size - defaultValues.size > args.size){
+                  if (argTypes.size - defaultValues.size > args.size || args.size > argTypes.size){
                     fatal(s"Wrong number of arguments for function/constructor $qname", expr)
                   }
               /*if (sig.argTypes.size != args.size) {

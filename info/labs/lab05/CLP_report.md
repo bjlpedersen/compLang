@@ -4,7 +4,7 @@
 
 * Bjork Pedersen, email: bjork.pedersentomas@epfl.ch
 * Sanem Sarioglu, email: sanem.sarioglu@epfl.ch
-* First3 Last3, email: first3.last3@epfl.ch
+* Fedor Katanaev, email: fedor.katanaev@epfl.ch
 
 ## Abstract
 We extended the Amy programming language with new, high level features with the goal to improve type safety and developer experience. Specifically, we added default parameters with names arguments to reduce boilerplate and support for Tuples. The compiler correctly processes the new syntaxes into backward compatible WebAssembly output showing that Amy can cleanly support advanced features.
