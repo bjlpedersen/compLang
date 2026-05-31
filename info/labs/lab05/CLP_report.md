@@ -3,7 +3,7 @@
 ## Contact Information
 
 * Bjork Pedersen, email: bjork.pedersentomas@epfl.ch
-* First2 Last2, email: first2.last2@epfl.ch
+* Sanem Sarioglu, email: sanem.sarioglu@epfl.ch
 * First3 Last3, email: first3.last3@epfl.ch
 
 ## Abstract
