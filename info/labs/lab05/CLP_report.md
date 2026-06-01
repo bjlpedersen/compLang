@@ -353,10 +353,7 @@ To ensure the new Tuple parsing and desugaring successfully linked with standard
 
 ### What Remains
 
-The parser and AST are complete — all the information needed for default parameters and named arguments is correctly parsed and stored. What remains is on the semantic side:
-
-- **Named argument reordering**: when a caller writes `foo(y = 5, x = 3)`, the name analyzer should match each argument to its correct parameter position by name. This is not yet implemented.
-- **Filling in default values**: when a caller omits a parameter that has a default, the compiler should automatically insert the default value. Neither the name analyzer nor the type checker currently does this.
+The parser and AST are complete — all the information needed for default parameters and named arguments is correctly parsed and stored. 
 
 ### Further Extensions
 
